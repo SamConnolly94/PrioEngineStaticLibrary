@@ -19,67 +19,61 @@
     </ProjectConfiguration>
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="..\..\Prio Engine\Engine\Camera.cpp" />
-    <ClCompile Include="..\..\Prio Engine\Engine\ColourShader.cpp" />
-    <ClCompile Include="..\..\Prio Engine\Engine\Cube.cpp" />
-    <ClCompile Include="..\..\Prio Engine\Engine\D3D11.cpp" />
-    <ClCompile Include="..\..\Prio Engine\Engine\DiffuseLightShader.cpp" />
-    <ClCompile Include="..\..\Prio Engine\Engine\Engine.cpp" />
-    <ClCompile Include="..\..\Prio Engine\Engine\GameTimer.cpp" />
-    <ClCompile Include="..\..\Prio Engine\Engine\Graphics.cpp" />
-    <ClCompile Include="..\..\Prio Engine\Engine\Input.cpp" />
-    <ClCompile Include="..\..\Prio Engine\Engine\Light.cpp" />
-    <ClCompile Include="..\..\Prio Engine\Engine\Logger.cpp" />
-    <ClCompile Include="..\..\Prio Engine\Engine\Mesh.cpp" />
-    <ClCompile Include="..\..\Prio Engine\Engine\Model.cpp" />
-    <ClCompile Include="..\..\Prio Engine\Engine\ModelControl.cpp" />
-    <ClCompile Include="..\..\Prio Engine\Engine\Primitive.cpp" />
-    <ClCompile Include="..\..\Prio Engine\Engine\Texture.cpp" />
-    <ClCompile Include="..\..\Prio Engine\Engine\TextureShader.cpp" />
-    <ClCompile Include="..\..\Prio Engine\Engine\Triangle.cpp" />
-    <ClCompile Include="..\..\Prio Engine\Engine\VertexTypeManager.cpp" />
+    <ClInclude Include="..\..\Prio-Engine\Prio Engine\Engine\Camera.h" />
+    <ClInclude Include="..\..\Prio-Engine\Prio Engine\Engine\ColourShader.h" />
+    <ClInclude Include="..\..\Prio-Engine\Prio Engine\Engine\Cube.h" />
+    <ClInclude Include="..\..\Prio-Engine\Prio Engine\Engine\D3D11.h" />
+    <ClInclude Include="..\..\Prio-Engine\Prio Engine\Engine\DiffuseLightShader.h" />
+    <ClInclude Include="..\..\Prio-Engine\Prio Engine\Engine\Engine.h" />
+    <ClInclude Include="..\..\Prio-Engine\Prio Engine\Engine\GameTimer.h" />
+    <ClInclude Include="..\..\Prio-Engine\Prio Engine\Engine\Graphics.h" />
+    <ClInclude Include="..\..\Prio-Engine\Prio Engine\Engine\Input.h" />
+    <ClInclude Include="..\..\Prio-Engine\Prio Engine\Engine\Light.h" />
+    <ClInclude Include="..\..\Prio-Engine\Prio Engine\Engine\Logger.h" />
+    <ClInclude Include="..\..\Prio-Engine\Prio Engine\Engine\Mesh.h" />
+    <ClInclude Include="..\..\Prio-Engine\Prio Engine\Engine\Model.h" />
+    <ClInclude Include="..\..\Prio-Engine\Prio Engine\Engine\ModelControl.h" />
+    <ClInclude Include="..\..\Prio-Engine\Prio Engine\Engine\Primitive.h" />
+    <ClInclude Include="..\..\Prio-Engine\Prio Engine\Engine\PrioEngineVars.h" />
+    <ClInclude Include="..\..\Prio-Engine\Prio Engine\Engine\SpecularLightingShader.h" />
+    <ClInclude Include="..\..\Prio-Engine\Prio Engine\Engine\Terrain.h" />
+    <ClInclude Include="..\..\Prio-Engine\Prio Engine\Engine\Texture.h" />
+    <ClInclude Include="..\..\Prio-Engine\Prio Engine\Engine\TextureShader.h" />
+    <ClInclude Include="..\..\Prio-Engine\Prio Engine\Engine\Triangle.h" />
+    <ClInclude Include="..\..\Prio-Engine\Prio Engine\Engine\VertexTypeManager.h" />
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="..\..\Prio Engine\Engine\Camera.h" />
-    <ClInclude Include="..\..\Prio Engine\Engine\ColourShader.h" />
-    <ClInclude Include="..\..\Prio Engine\Engine\Cube.h" />
-    <ClInclude Include="..\..\Prio Engine\Engine\D3D11.h" />
-    <ClInclude Include="..\..\Prio Engine\Engine\DiffuseLightShader.h" />
-    <ClInclude Include="..\..\Prio Engine\Engine\Engine.h" />
-    <ClInclude Include="..\..\Prio Engine\Engine\GameTimer.h" />
-    <ClInclude Include="..\..\Prio Engine\Engine\Graphics.h" />
-    <ClInclude Include="..\..\Prio Engine\Engine\Input.h" />
-    <ClInclude Include="..\..\Prio Engine\Engine\Light.h" />
-    <ClInclude Include="..\..\Prio Engine\Engine\Logger.h" />
-    <ClInclude Include="..\..\Prio Engine\Engine\Mesh.h" />
-    <ClInclude Include="..\..\Prio Engine\Engine\Model.h" />
-    <ClInclude Include="..\..\Prio Engine\Engine\ModelControl.h" />
-    <ClInclude Include="..\..\Prio Engine\Engine\Primitive.h" />
-    <ClInclude Include="..\..\Prio Engine\Engine\PrioEngineVars.h" />
-    <ClInclude Include="..\..\Prio Engine\Engine\Texture.h" />
-    <ClInclude Include="..\..\Prio Engine\Engine\TextureShader.h" />
-    <ClInclude Include="..\..\Prio Engine\Engine\Triangle.h" />
-    <ClInclude Include="..\..\Prio Engine\Engine\VertexTypeManager.h" />
+    <ClCompile Include="..\..\Prio-Engine\Prio Engine\Engine\Camera.cpp" />
+    <ClCompile Include="..\..\Prio-Engine\Prio Engine\Engine\ColourShader.cpp" />
+    <ClCompile Include="..\..\Prio-Engine\Prio Engine\Engine\Cube.cpp" />
+    <ClCompile Include="..\..\Prio-Engine\Prio Engine\Engine\D3D11.cpp" />
+    <ClCompile Include="..\..\Prio-Engine\Prio Engine\Engine\DiffuseLightShader.cpp" />
+    <ClCompile Include="..\..\Prio-Engine\Prio Engine\Engine\Engine.cpp" />
+    <ClCompile Include="..\..\Prio-Engine\Prio Engine\Engine\GameTimer.cpp" />
+    <ClCompile Include="..\..\Prio-Engine\Prio Engine\Engine\Graphics.cpp" />
+    <ClCompile Include="..\..\Prio-Engine\Prio Engine\Engine\Input.cpp" />
+    <ClCompile Include="..\..\Prio-Engine\Prio Engine\Engine\Light.cpp" />
+    <ClCompile Include="..\..\Prio-Engine\Prio Engine\Engine\Logger.cpp" />
+    <ClCompile Include="..\..\Prio-Engine\Prio Engine\Engine\Mesh.cpp" />
+    <ClCompile Include="..\..\Prio-Engine\Prio Engine\Engine\Model.cpp" />
+    <ClCompile Include="..\..\Prio-Engine\Prio Engine\Engine\ModelControl.cpp" />
+    <ClCompile Include="..\..\Prio-Engine\Prio Engine\Engine\Primitive.cpp" />
+    <ClCompile Include="..\..\Prio-Engine\Prio Engine\Engine\SpecularLightingShader.cpp" />
+    <ClCompile Include="..\..\Prio-Engine\Prio Engine\Engine\Terrain.cpp" />
+    <ClCompile Include="..\..\Prio-Engine\Prio Engine\Engine\Texture.cpp" />
+    <ClCompile Include="..\..\Prio-Engine\Prio Engine\Engine\TextureShader.cpp" />
+    <ClCompile Include="..\..\Prio-Engine\Prio Engine\Engine\Triangle.cpp" />
+    <ClCompile Include="..\..\Prio-Engine\Prio Engine\Engine\VertexTypeManager.cpp" />
   </ItemGroup>
   <ItemGroup>
-    <None Include="..\..\Prio Engine\Engine\Shaders\Colour.ps.hlsl">
-      <FileType>Document</FileType>
-    </None>
-    <None Include="..\..\Prio Engine\Engine\Shaders\Colour.vs.hlsl">
-      <FileType>Document</FileType>
-    </None>
-    <None Include="..\..\Prio Engine\Engine\Shaders\DiffuseLight.ps.hlsl">
-      <FileType>Document</FileType>
-    </None>
-    <None Include="..\..\Prio Engine\Engine\Shaders\DiffuseLight.vs.hlsl">
-      <FileType>Document</FileType>
-    </None>
-    <None Include="..\..\Prio Engine\Engine\Shaders\Texture.ps.hlsl">
-      <FileType>Document</FileType>
-    </None>
-    <None Include="..\..\Prio Engine\Engine\Shaders\Texture.vs.hlsl">
-      <FileType>Document</FileType>
-    </None>
+    <FxCompile Include="..\..\Prio-Engine\Prio Engine\Engine\Shaders\Colour.ps.hlsl" />
+    <FxCompile Include="..\..\Prio-Engine\Prio Engine\Engine\Shaders\Colour.vs.hlsl" />
+    <FxCompile Include="..\..\Prio-Engine\Prio Engine\Engine\Shaders\DiffuseLight.ps.hlsl" />
+    <FxCompile Include="..\..\Prio-Engine\Prio Engine\Engine\Shaders\DiffuseLight.vs.hlsl" />
+    <FxCompile Include="..\..\Prio-Engine\Prio Engine\Engine\Shaders\SpecularLight.ps.hlsl" />
+    <FxCompile Include="..\..\Prio-Engine\Prio Engine\Engine\Shaders\SpecularLight.vs.hlsl" />
+    <FxCompile Include="..\..\Prio-Engine\Prio Engine\Engine\Shaders\Texture.ps.hlsl" />
+    <FxCompile Include="..\..\Prio-Engine\Prio Engine\Engine\Shaders\Texture.vs.hlsl" />
   </ItemGroup>
   <PropertyGroup Label="Globals">
     <ProjectGuid>{6AF12153-2807-4DED-8B80-5428C551E381}</ProjectGuid>
