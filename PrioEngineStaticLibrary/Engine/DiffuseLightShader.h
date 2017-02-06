@@ -48,8 +48,6 @@ private:
 	ID3D11Buffer* mpMatrixBuffer;
 	ID3D11SamplerState* mpSampleState;
 	ID3D11Buffer* mpLightBuffer;
-
-	;
 };
 
 #endif

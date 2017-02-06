@@ -3,6 +3,8 @@
 CD3D11::CD3D11()
 {
 	mGraphicsCardName = "";
+	mpAlphaBlendingStateDisabled = nullptr;
+	mpAlphaBlendingStateEnabled = nullptr;	
 }
 
 
@@ -26,10 +28,12 @@ bool CD3D11::Initialise(int screenWidth, int screenHeight, bool vsync, HWND hwnd
 	D3D_FEATURE_LEVEL featureLevel;
 	ID3D11Texture2D* backBufferPtr;
 	D3D11_TEXTURE2D_DESC depthBufferDesc;
-	D3D11_DEPTH_STENCIL_DESC depthStencilBufferDesc;
+	D3D11_DEPTH_STENCIL_DESC depthEnabledStencilBufferDesc;
+	D3D11_DEPTH_STENCIL_DESC depthDisabledStencilBufferDesc;
 	D3D11_DEPTH_STENCIL_VIEW_DESC depthStencilViewDesc;
 	D3D11_RASTERIZER_DESC rasterDesc;
 	D3D11_VIEWPORT viewport;
+	D3D11_BLEND_DESC blendStateDesc;
 
 	mScreenWidth = screenWidth;
 	mScreenHeight = screenHeight;
@@ -217,13 +221,18 @@ bool CD3D11::Initialise(int screenWidth, int screenHeight, bool vsync, HWND hwnd
 
 	/* Create depth stencil buffer. */
 
-	if (!CreateDepthStencilBuffer(depthStencilBufferDesc))
+	if (!CreateDepthStencilBuffer(depthEnabledStencilBufferDesc))
+	{
+		return false;
+	}
+
+	if (!CreateDepthDisabledStencilState(depthDisabledStencilBufferDesc))
 	{
 		return false;
 	}
 
 	// Put the depth stencil buffer into effect!
-	mpDeviceContext->OMSetDepthStencilState(mpDepthStencilState, 1);
+	mpDeviceContext->OMSetDepthStencilState(mpDepthEnabledStencilState, 1);
 
 	/* Create the depth stencil view. */
 
@@ -257,8 +266,38 @@ bool CD3D11::Initialise(int screenWidth, int screenHeight, bool vsync, HWND hwnd
 	/* Create orthographic projection matrix. */
 
 	// Create an orthographic projection matrix for 2D rendering of things like interfaces and sprites.
-	 D3DXMatrixOrthoLH(&mOrthographicMatrix, static_cast<float>(screenWidth), static_cast<float>(screenHeight), screenNear, screenDepth);
-	 
+	D3DXMatrixOrthoLH(&mOrthoMatrix, (float)screenWidth, (float)screenHeight, screenNear, screenDepth);
+
+	 // Create the state using the blend state description.
+	 // Clear memory 
+	 ZeroMemory(&blendStateDesc, sizeof(D3D11_BLEND_DESC));
+
+	 // Set up the descriptor for blend state. Look over second year notes if you've forgotten what this does.
+	 blendStateDesc.RenderTarget[0].BlendEnable = TRUE;
+	 blendStateDesc.RenderTarget[0].SrcBlend = D3D11_BLEND_ONE;
+	 blendStateDesc.RenderTarget[0].DestBlend = D3D11_BLEND_INV_SRC_ALPHA;
+	 blendStateDesc.RenderTarget[0].BlendOp = D3D11_BLEND_OP_ADD;
+	 blendStateDesc.RenderTarget[0].SrcBlendAlpha = D3D11_BLEND_ONE;
+	 blendStateDesc.RenderTarget[0].DestBlendAlpha = D3D11_BLEND_ZERO;
+	 blendStateDesc.RenderTarget[0].BlendOpAlpha = D3D11_BLEND_OP_ADD;
+	 blendStateDesc.RenderTarget[0].RenderTargetWriteMask = 0x0f;
+
+	 result = mpDevice->CreateBlendState(&blendStateDesc, &mpAlphaBlendingStateEnabled);
+	 if (FAILED(result))
+	 {
+		 gLogger->WriteLine("Failed to create the alpha blending state enabled from descriptor.");
+		 return false;
+	 }
+
+	 // Alter to disable alpha blending.
+	 blendStateDesc.RenderTarget[0].BlendEnable = FALSE;
+
+	 result = mpDevice->CreateBlendState(&blendStateDesc, &mpAlphaBlendingStateDisabled);
+	 if (FAILED(result))
+	 {
+		 gLogger->WriteLine("Failed to create the alpha blending state disabled from descriptor.");
+		 return false;
+	 }
 
 	// Success! We have successfully setup DirectX.
 	return true;
@@ -278,6 +317,20 @@ void CD3D11::Shutdown()
 		gLogger->WriteLine("Set to windowed mode.");
 	}
 
+	// If blending state initialised.
+	if (mpAlphaBlendingStateEnabled)
+	{
+		mpAlphaBlendingStateEnabled->Release();
+		mpAlphaBlendingStateEnabled = nullptr;
+	}
+
+	// If blending state initialised.
+	if (mpAlphaBlendingStateDisabled)
+	{
+		mpAlphaBlendingStateDisabled->Release();
+		mpAlphaBlendingStateDisabled = nullptr;
+	}
+
 	// If rasterizer state has been initialised.
 	if (mpRasterizerState)
 	{
@@ -295,11 +348,17 @@ void CD3D11::Shutdown()
 	}
 
 	// If depth stencil state has been initialised.
-	if (mpDepthStencilState)
+	if (mpDepthEnabledStencilState)
 	{
 		// Release the depth stencil state.
-		mpDepthStencilState->Release();
-		mpDepthStencilState = nullptr;
+		mpDepthEnabledStencilState->Release();
+		mpDepthEnabledStencilState = nullptr;
+	}
+
+	if (mpDepthDisabledStencilState)
+	{
+		mpDepthDisabledStencilState->Release();
+		mpDepthDisabledStencilState = nullptr;
 	}
 
 	// If depth stencil buffer has been initialised.
@@ -409,7 +468,7 @@ void CD3D11::GetWorldMatrix(D3DMATRIX & worldMatrix)
 
 void CD3D11::GetOrthogonalMatrix(D3DMATRIX & orthogMatrix)
 {
-	orthogMatrix = mOrthographicMatrix;
+	orthogMatrix = mOrthoMatrix;
 	return;
 }
 
@@ -482,6 +541,32 @@ void CD3D11::EnableSolidFill()
 	gLogger->WriteLine("Rasterizer state changed to use solid fill.");
 }
 
+void CD3D11::EnableAlphaBlending()
+{
+	float blendFactor[4] = {0.0f, 0.0f, 0.0f, 0.0f};
+
+	mpDeviceContext->OMSetBlendState(mpAlphaBlendingStateEnabled, blendFactor, 0xffffffff);
+}
+
+void CD3D11::DisableAlphaBlending()
+{
+	float blendFactor[4] = { 0.0f, 0.0f, 0.0f, 0.0f };
+
+	mpDeviceContext->OMSetBlendState(mpAlphaBlendingStateDisabled, blendFactor, 0xffffffff);
+}
+
+void CD3D11::DisableZBuffer()
+{
+	// Create the stencil buffer from the descriptor.
+	mpDeviceContext->OMSetDepthStencilState(mpDepthDisabledStencilState, 1);
+}
+
+void CD3D11::EnableZBuffer()
+{
+	// Create the stencil buffer from the descriptor.
+	mpDeviceContext->OMSetDepthStencilState(mpDepthEnabledStencilState, 1);
+}
+
 /* Gets information about the graphics card that DirectX is using. */
 //void CD3D11::GetGraphicsCardInfo(char * cardName, int & memory)
 //{
@@ -551,7 +636,7 @@ void CD3D11::CreateSwapChainDesc(HWND hwnd, DXGI_SWAP_CHAIN_DESC& swapChainDesc,
 	swapChainDesc.SwapEffect = DXGI_SWAP_EFFECT_DISCARD;
 
 	// Don't set any of the advanced flags.
-	swapChainDesc.Flags = 0;
+	swapChainDesc.Flags = DXGI_SWAP_CHAIN_FLAG_ALLOW_MODE_SWITCH;
 }
 
 /* Creates the swap and chain which is used to switch between the front and back buffers, allowing one to present and one to render. */
@@ -647,8 +732,6 @@ bool CD3D11::CreateDepthStencilBuffer(D3D11_DEPTH_STENCIL_DESC& depthStencilBuff
 
 	// Initialise the description of the stencil state.
 	depthStencilBufferDesc = {};
-	//mpDepthStencilBuffer = {};
-	//ZeroMemory(&depthStencilBufferDesc, NULL, &mpDepthStencilBuffer);
 
 	// Set up the description of the stencil state.
 	depthStencilBufferDesc.DepthEnable = true;
@@ -672,7 +755,43 @@ bool CD3D11::CreateDepthStencilBuffer(D3D11_DEPTH_STENCIL_DESC& depthStencilBuff
 	depthStencilBufferDesc.BackFace.StencilFunc = D3D11_COMPARISON_ALWAYS;
 
 	// Create the stencil buffer from the descriptor.
-	result = mpDevice->CreateDepthStencilState(&depthStencilBufferDesc, &mpDepthStencilState);
+	result = mpDevice->CreateDepthStencilState(&depthStencilBufferDesc, &mpDepthEnabledStencilState);
+	if (FAILED(result))
+	{
+		// Log the error message.
+		gLogger->WriteLine("Failed to create the depth stencil buffer from the descriptor provided.");
+		// Stop!
+		return false;
+	}
+
+	return true;
+}
+
+bool CD3D11::CreateDepthDisabledStencilState(D3D11_DEPTH_STENCIL_DESC& depthStencilBufferDesc)
+{
+	HRESULT result;
+	// Clear the second depth stencil state before setting the parameters.
+	ZeroMemory(&depthStencilBufferDesc, sizeof(depthStencilBufferDesc));
+
+	// Now create a second depth stencil state which turns off the Z buffer for 2D rendering.  The only difference is 
+	// that DepthEnable is set to false, all other parameters are the same as the other depth stencil state.
+	depthStencilBufferDesc.DepthEnable = false;
+	depthStencilBufferDesc.DepthWriteMask = D3D11_DEPTH_WRITE_MASK_ALL;
+	depthStencilBufferDesc.DepthFunc = D3D11_COMPARISON_LESS;
+	depthStencilBufferDesc.StencilEnable = true;
+	depthStencilBufferDesc.StencilReadMask = 0xFF;
+	depthStencilBufferDesc.StencilWriteMask = 0xFF;
+	depthStencilBufferDesc.FrontFace.StencilFailOp = D3D11_STENCIL_OP_KEEP;
+	depthStencilBufferDesc.FrontFace.StencilDepthFailOp = D3D11_STENCIL_OP_INCR;
+	depthStencilBufferDesc.FrontFace.StencilPassOp = D3D11_STENCIL_OP_KEEP;
+	depthStencilBufferDesc.FrontFace.StencilFunc = D3D11_COMPARISON_ALWAYS;
+	depthStencilBufferDesc.BackFace.StencilFailOp = D3D11_STENCIL_OP_KEEP;
+	depthStencilBufferDesc.BackFace.StencilDepthFailOp = D3D11_STENCIL_OP_DECR;
+	depthStencilBufferDesc.BackFace.StencilPassOp = D3D11_STENCIL_OP_KEEP;
+	depthStencilBufferDesc.BackFace.StencilFunc = D3D11_COMPARISON_ALWAYS;
+
+	// Create the stencil buffer from the descriptor.
+	result = mpDevice->CreateDepthStencilState(&depthStencilBufferDesc, &mpDepthDisabledStencilState);
 	if (FAILED(result))
 	{
 		// Log the error message.
@@ -746,4 +865,18 @@ void CD3D11::CreateProjMatrix(float screenDepth, float screenNear)
 
 	// Create the projection matrix for 3D rendering.
 	D3DXMatrixPerspectiveFovLH(&mProjectionMatrix, fieldOfView, screenAspect, screenNear, screenDepth);
+}
+
+bool CD3D11::ToggleFullscreen(bool fullscreenEnabled)
+{
+	HRESULT result;
+	result = mpSwapChain->SetFullscreenState(fullscreenEnabled, NULL);
+
+	if (FAILED(result))
+	{
+		gLogger->WriteLine("Failed to swap to fullscreen using the swapchain in D3D11.cpp.");
+		return false;
+	}
+
+	return true;
 }

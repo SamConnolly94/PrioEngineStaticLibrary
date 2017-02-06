@@ -9,8 +9,12 @@ CGraphics::CGraphics()
 	mpColourShader = nullptr;
 	mpTextureShader = nullptr;
 	mpDiffuseLightShader = nullptr;
+	mpTerrainShader = nullptr;
 	mWireframeEnabled = false;
 	mFieldOfView = static_cast<float>(D3DX_PI / 4);
+	mpText = nullptr;
+	mFullScreen = false;
+	mpFrustum = nullptr;
 }
 
 CGraphics::~CGraphics()
@@ -39,7 +43,7 @@ bool CGraphics::Initialise(int screenWidth, int screenHeight, HWND hwnd)
 	gLogger->MemoryAllocWriteLine(typeid(mpD3D).name());
 
 	// Initialise the D3D object.
-	successful = mpD3D->Initialise(screenWidth, screenHeight, VSYNC_ENABLED, hwnd, FULL_SCREEN, SCREEN_DEPTH, SCREEN_NEAR);
+	successful = mpD3D->Initialise(screenWidth, screenHeight, VSYNC_ENABLED, hwnd, mFullScreen, SCREEN_DEPTH, SCREEN_NEAR);
 	// If failed to init D3D, then output error.
 	if (!successful)
 	{
@@ -53,6 +57,37 @@ bool CGraphics::Initialise(int screenWidth, int screenHeight, HWND hwnd)
 
 	// Create a colour shader now, it's necessary for terrain.
 	CreateColourShader(hwnd);
+	CreateTextureShaderForModel(hwnd);
+	CreateTextureAndDiffuseLightShaderFromModel(hwnd);
+	CreateTerrainShader(hwnd);
+
+	mpFrustum = new CFrustum();
+
+	mpCamera = CreateCamera();
+	mpCamera->Render();
+
+	/// SET UP TEXT FROM CAMERA POS.
+	mpText = new CGameText();
+
+	if (!mpText)
+	{
+		gLogger->WriteLine("Failed to allocate memory to the GameText var in Graphics.cpp.");
+		return false;
+	}
+
+	D3DXMATRIX baseView;
+	mpCamera->GetViewMatrix(baseView);
+	if (!mpText->Initialise(mpD3D->GetDevice(), mpD3D->GetDeviceContext(), mHwnd, mScreenWidth, mScreenHeight, baseView))
+	{
+		gLogger->WriteLine("Failed to initailise the text object in graphics.cpp.");
+		return false;
+	}
+	mBaseView = baseView;
+
+	gLogger->WriteLine("Setting up AntTweakBar.");
+	TwInit(TW_DIRECT3D11, mpD3D->GetDevice());
+	TwWindowSize(mScreenWidth, mScreenHeight);
+	gLogger->WriteLine("AntTweakBar successfully initialised. ");
 
 	// Success!
 	gLogger->WriteLine("Direct3D was successfully initialised.");
@@ -61,6 +96,28 @@ bool CGraphics::Initialise(int screenWidth, int screenHeight, HWND hwnd)
 
 void CGraphics::Shutdown()
 {
+	if (mpText)
+	{
+		mpText->Shutdown();
+		delete mpText;
+		mpText = nullptr;
+		gLogger->MemoryDeallocWriteLine(typeid(mpText).name());
+	}
+
+	for (auto image : mpUIImages)
+	{
+		image->Shutdown();
+		delete image;
+		image = nullptr;
+		gLogger->MemoryDeallocWriteLine(typeid(image).name());
+	}
+
+	if (mpFrustum != nullptr)
+	{
+		delete mpFrustum;
+	}
+
+	mpUIImages.clear();
 
 	if (mpDiffuseLightShader)
 	{
@@ -68,6 +125,14 @@ void CGraphics::Shutdown()
 		delete mpDiffuseLightShader;
 		mpDiffuseLightShader = nullptr;
 		gLogger->MemoryDeallocWriteLine(typeid(mpDiffuseLightShader).name());
+	}
+
+	if (mpTerrainShader)
+	{
+		mpTerrainShader->Shutdown();
+		delete mpTerrainShader;
+		mpTerrainShader = nullptr;
+		gLogger->MemoryDeallocWriteLine(typeid(mpTerrainShader).name());
 	}
 
 	if (mpTextureShader)
@@ -140,7 +205,7 @@ void CGraphics::Shutdown()
 
 	// Deallocate memory on the terrain list.
 
-	std::list<CTerrainGrid*>::iterator terrainIt;
+	std::list<CTerrain*>::iterator terrainIt;
 	terrainIt = mpTerrainGrids.begin();
 	while (terrainIt != mpTerrainGrids.end())
 	{
@@ -201,6 +266,8 @@ bool CGraphics::Render()
 	D3DXMATRIX viewMatrix;
 	D3DXMATRIX worldMatrix;
 	D3DXMATRIX projMatrix;
+	D3DXMATRIX orthoMatrix;
+	mpD3D->GetOrthogonalMatrix(orthoMatrix);
 
 	// Clear buffers so we can begin to render the scene.
 	mpD3D->BeginScene(0.6f, 0.9f, 1.0f, 1.0f);
@@ -212,11 +279,22 @@ bool CGraphics::Render()
 	mpCamera->GetViewMatrix(viewMatrix);
 	mpD3D->GetWorldMatrix(worldMatrix);
 	mpD3D->GetProjectionMatrix(projMatrix);
+	mpD3D->GetOrthogonalMatrix(orthoMatrix);
 
+	mpFrustum->ConstructFrustum(SCREEN_DEPTH, projMatrix, viewMatrix);
 
 	// Render model using texture shader.
-	if (!RenderModels(viewMatrix, worldMatrix, projMatrix))
+	if (!RenderModels(worldMatrix, viewMatrix, projMatrix))
 		return false;
+
+	if (!RenderBitmaps(mBaseView, mBaseView, orthoMatrix))
+		return false;
+
+
+	if (!RenderText(worldMatrix, mBaseView, orthoMatrix))
+		return false;
+
+	TwDraw();
 
 	// Present the rendered scene to the screen.
 	mpD3D->EndScene();
@@ -224,58 +302,52 @@ bool CGraphics::Render()
 	return true;
 }
 
-bool CGraphics::RenderModels(D3DXMATRIX view, D3DXMATRIX world, D3DXMATRIX proj)
+/* Renders any primitive shapes on the scene. */
+bool CGraphics::RenderPrimitives(D3DXMATRIX world, D3DXMATRIX view, D3DXMATRIX proj)
 {
-	std::list<CPrimitive*>::iterator it;
-	it = mpPrimitives.begin();
-	
-	D3DXMATRIX modelWorld;
-	// Define three matrices to hold x, y and z rotations.
-	D3DXMATRIX rotX;
-	D3DXMATRIX rotY;
-	D3DXMATRIX rotZ;
+	std::list<CPrimitive*>::iterator primitivesIt;
+	primitivesIt = mpPrimitives.begin();
 
-	while (it != mpPrimitives.end())
+	while (primitivesIt != mpPrimitives.end())
 	{
-		D3DXMatrixTranslation(&modelWorld, (*it)->GetPosX(), (*it)->GetPosY(), (*it)->GetPosZ());
-
-		// Use Direct X to rotate the matrices and pass the matrix after rotation back into the rotation matrix we defined.
-		D3DXMatrixRotationX(&rotX, (*it)->GetRotationX());
-		D3DXMatrixRotationY(&rotY, (*it)->GetRotationY());
-		D3DXMatrixRotationZ(&rotZ, (*it)->GetRotationZ());
-		world = modelWorld * rotX * rotY * rotZ;
+		(*primitivesIt)->UpdateMatrices(world);
 
 		// put the model vertex and index buffers on the graphics pipleline to prepare them for dawing.
-		(*it)->Render(mpD3D->GetDeviceContext());
+		(*primitivesIt)->Render(mpD3D->GetDeviceContext());
 
 		// Render texture with no light.
-		if ((*it)->HasTexture() && !(*it)->UseDiffuseLight())
+		if ((*primitivesIt)->HasTexture() && !(*primitivesIt)->UseDiffuseLight())
 		{
-			if (!RenderPrimitiveWithTexture((*it), world, view, proj))
+			if (!RenderPrimitiveWithTexture((*primitivesIt), world, view, proj))
 			{
 				return false;
 			}
 		}
 		// Render texture with light.
-		else if ((*it)->HasTexture() && (*it)->UseDiffuseLight())
+		else if ((*primitivesIt)->HasTexture() && (*primitivesIt)->UseDiffuseLight())
 		{
-			if (!RenderPrimitiveWithTextureAndDiffuseLight((*it), world, view, proj))
+			if (!RenderPrimitiveWithTextureAndDiffuseLight((*primitivesIt), world, view, proj))
 			{
 				return false;
 			}
 		}
 		// Render colour.
-		else if ((*it)->HasColour())
+		else if ((*primitivesIt)->HasColour())
 		{
-			if (!RenderPrimitiveWithColour((*it), world, view, proj))
+			if (!RenderPrimitiveWithColour((*primitivesIt), world, view, proj))
 			{
 				return false;
 			}
 		}
-		it++;
+		primitivesIt++;
 	}
 
+	return true;
+}
 
+/* Render any meshes / instances of meshes which we have created on the scene. */
+bool CGraphics::RenderMeshes(D3DXMATRIX world, D3DXMATRIX view, D3DXMATRIX proj)
+{
 	std::list<CMesh*>::iterator meshIt = mpMeshes.begin();
 
 	// Render any models which belong to each mesh. Do this in batches to make it faster.
@@ -287,26 +359,203 @@ bool CGraphics::RenderModels(D3DXMATRIX view, D3DXMATRIX world, D3DXMATRIX proj)
 		meshIt++;
 	}
 
-	// Render any terrains.
+	return true;
+}
 
-	std::list<CTerrainGrid*>::iterator terrainIt = mpTerrainGrids.begin();
-
-	while (terrainIt != mpTerrainGrids.end())
+/* Render the terrain and all areas inside of it. */
+bool CGraphics::RenderTerrains(D3DXMATRIX world, D3DXMATRIX view, D3DXMATRIX proj)
+{
+	// Iterate through each terrain that has been created.
+	for (auto terrain : mpTerrainGrids)
 	{
-		(*terrainIt)->Render(mpD3D->GetDeviceContext());
+		// Update the world matrix and perform operations on the world matrix of this object.
+		terrain->UpdateMatrices(world);
 
-		D3DXMatrixTranslation(&modelWorld, (*terrainIt)->GetPosX(), (*terrainIt)->GetPosY(), (*terrainIt)->GetPosZ());
-
-		// Use Direct X to rotate the matrices and pass the matrix after rotation back into the rotation matrix we defined.
-		D3DXMatrixRotationX(&rotX, (*terrainIt)->GetRotationX());
-		D3DXMatrixRotationY(&rotY, (*terrainIt)->GetRotationY());
-		D3DXMatrixRotationZ(&rotZ, (*terrainIt)->GetRotationZ());
-		world = modelWorld * rotX * rotY * rotZ;
-
-		// Render the terrain model using the colour shader.
-		mpColourShader->Render(mpD3D->GetDeviceContext(), (*terrainIt)->GetIndexCount(), world, view, proj);
-		terrainIt++;
+		// Iterate through each area of terrain in this terrain.
+		//for (auto area : terrain->GetAreas())
+		//{
+			// Render this area.
+			//area->Render(mpD3D->GetDeviceContext());
+			terrain->Render(mpD3D->GetDeviceContext());
+			
+			//mpTerrainShader->Render(mpD3D->GetDeviceContext(), terrain->GetIndexCount(), world, view, proj, terrain->GetTexture()->GetTexture(), light->GetDirection(), light->GetDiffuseColour(), light->GetAmbientColour());
+			// Iterate through each light that we have on our scene.
+			for (auto light : mpLights)
+			{
+				// Render the terrain area with the diffuse light shader.
+				//if (!mpDiffuseLightShader->Render(mpD3D->GetDeviceContext(), terrain->GetIndexCount(), world, view, proj, terrain->GetTexture()->GetTexture(), light->GetDirection(), light->GetDiffuseColour(), light->GetAmbientColour()))
+				if (!mpTerrainShader->Render(mpD3D->GetDeviceContext(),
+					terrain->GetIndexCount(), world, view, proj,
+					terrain->GetTexturesArray(),
+					terrain->GetNumberOfTextures(),
+					light->GetDirection(),
+					light->GetDiffuseColour(),
+					light->GetAmbientColour(),
+					terrain->GetHighestPoint(),
+					terrain->GetLowestPoint(),
+					terrain->GetPos()
+					))
+				{
+					// If we failed to render, return false.
+					return false;
+				}
+			}
+		//}
 	}
+
+	// Successfully rendered the terrain.
+	return true;
+
+}
+
+/* Renders physical entities within the scene. */
+bool CGraphics::RenderModels(D3DXMATRIX world, D3DXMATRIX view, D3DXMATRIX proj)
+{
+	if (!RenderPrimitives(world, view, proj))
+		return false;
+
+	if (!RenderMeshes(world, view, proj))
+		return false;
+
+	if (!RenderTerrains(world, view, proj))
+		return false;
+
+	return true;
+}
+
+bool CGraphics::RenderText(D3DXMATRIX world, D3DXMATRIX view, D3DXMATRIX ortho)
+{
+	mpD3D->DisableZBuffer();
+	mpD3D->EnableAlphaBlending();
+
+	bool result = mpText->Render(mpD3D->GetDeviceContext(), world, ortho);
+
+	if (!result)
+	{
+		gLogger->WriteLine("Failed to render text.");
+		return false;
+	}
+
+
+	mpD3D->EnableZBuffer();
+	mpD3D->DisableAlphaBlending();
+
+	return true;
+}
+
+bool CGraphics::RenderBitmaps(D3DXMATRIX world, D3DXMATRIX view, D3DXMATRIX ortho)
+{
+	mpD3D->DisableZBuffer();
+	mpD3D->EnableAlphaBlending();
+
+	bool result;
+
+	for (auto image : mpUIImages)
+	{
+		result = image->Render(mpD3D->GetDeviceContext(), image->GetX(), image->GetY());
+
+		if (!result)
+		{
+			gLogger->WriteLine("Failed to render.");
+			return false;
+		}
+	}
+
+	for (auto image : mpUIImages)
+	{
+		result = mpTextureShader->Render(mpD3D->GetDeviceContext(), image->GetNumberOfIndices(), world, view, ortho, image->GetTexture());
+
+		if (!result)
+		{
+			gLogger->WriteLine("Failed to render with texture shader.");
+			return false;
+		}
+	}
+
+	mpD3D->EnableZBuffer();
+	mpD3D->DisableAlphaBlending();
+
+	return true;
+}
+
+SentenceType * CGraphics::CreateSentence(std::string text, int posX, int posY, int maxLength)
+{
+	return mpText->CreateSentence(mpD3D->GetDevice(), mpD3D->GetDeviceContext(), text, posX, posY, maxLength);
+}
+
+bool CGraphics::UpdateSentence(SentenceType *& sentence, std::string text, int posX, int posY, PrioEngine::RGB colour)
+{
+	return mpText->UpdateSentence(sentence, text, posX, posY, colour.r, colour.g, colour.b, mpD3D->GetDeviceContext());
+}
+
+bool CGraphics::RemoveSentence(SentenceType *& sentence)
+{
+	return mpText->RemoveSentence(sentence);
+}
+
+C2DImage * CGraphics::CreateUIImages(WCHAR* filename, int width, int height, int posX, int posY)
+{
+	/// Set up image.
+
+	C2DImage* image = new C2DImage();
+
+	bool successful = image->Initialise(mpD3D->GetDevice(), mScreenWidth, mScreenHeight, filename, width, height);
+
+	image->SetX(posX);
+	image->SetY(posY);
+
+	if (!successful)
+	{
+		gLogger->WriteLine("Failed to initialise C2DSprite in Graphics.cpp.");
+		return false;
+	}
+	gLogger->MemoryAllocWriteLine(typeid(image).name());
+
+	// Push image to the list.
+	mpUIImages.push_back(image);
+
+	return image;
+
+}
+
+bool CGraphics::RemoveUIImage(C2DImage *& element)
+{
+	std::list<C2DImage*>::iterator it = mpUIImages.begin();
+
+	while (it != mpUIImages.end())
+	{
+		if ((*it) == element)
+		{
+			(*it)->Shutdown();
+			delete (*it);
+			gLogger->MemoryDeallocWriteLine(typeid(*it).name());
+			(*it) = nullptr;
+			mpUIImages.erase(it);
+			element = nullptr;
+			return true;
+		}
+	}
+
+	return false;
+}
+
+bool CGraphics::UpdateTerrainBuffers(CTerrain *& terrain, double ** heightmap, int width, int height)
+{
+	return terrain->UpdateBuffers(mpD3D->GetDevice(), mpD3D->GetDeviceContext(), heightmap, width, height);
+}
+
+bool CGraphics::IsFullscreen()
+{
+	return mFullScreen;
+}
+
+bool CGraphics::SetFullscreen(bool isEnabled)
+{
+	mFullScreen = isEnabled;
+
+	// Set to windowed mode before shutting down or swap chain throws an exception.
+	if (!mpD3D->ToggleFullscreen(mFullScreen))
+		return false;
 
 	return true;
 }
@@ -322,7 +571,7 @@ bool CGraphics::RenderPrimitiveWithTextureAndDiffuseLight(CPrimitive* model, D3D
 	// Render each diffuse light in the list.
 	do
 	{
-		success = mpDiffuseLightShader->Render(mpD3D->GetDeviceContext(), model->GetIndex(), worldMatrix, viewMatrix, projMatrix, model->GetTexture(),(*it)->GetDirection(), (*it)->GetDiffuseColour(), (*it)->GetAmbientColour());
+		success = mpDiffuseLightShader->Render(mpD3D->GetDeviceContext(), model->GetIndex(), worldMatrix, viewMatrix, projMatrix, model->GetTexture(), (*it)->GetDirection(), (*it)->GetDiffuseColour(), (*it)->GetAmbientColour());
 		it++;
 	} while (it != mpLights.end());
 
@@ -347,7 +596,7 @@ bool CGraphics::RenderPrimitiveWithColour(CPrimitive* model, D3DMATRIX worldMatr
 		gLogger->WriteLine("Failed to render the model using the colour shader object.");
 		return false;
 	}
-	
+
 	return true;
 }
 
@@ -538,6 +787,35 @@ bool CGraphics::CreateTextureAndDiffuseLightShaderFromModel(HWND hwnd)
 	return true;
 }
 
+bool CGraphics::CreateTerrainShader(HWND hwnd)
+{
+	if (mpTerrainShader == nullptr)
+	{
+		bool successful;
+
+		// Create texture shader.
+		mpTerrainShader = new CTerrainShader();
+		gLogger->MemoryAllocWriteLine(typeid(mpTerrainShader).name());
+		if (!mpTerrainShader)
+		{
+			gLogger->WriteLine("Failed to create the texture shader object in graphics.cpp.");
+			return false;
+		}
+
+		// Initialise the texture shader object.
+		successful = mpTerrainShader->Initialise(mpD3D->GetDevice(), hwnd);
+		if (!successful)
+		{
+			gLogger->WriteLine("Failed to initialise the mpTerrainShader shader object in graphics.cpp.");
+			MessageBox(hwnd, L"Could not initialise the mpTerrainShader shader object.", L"Error", MB_OK);
+			return false;
+		}
+
+	}
+	return true;
+}
+
+
 bool CGraphics::CreateTextureShaderForModel(HWND hwnd)
 {
 	if (mpTextureShader == nullptr)
@@ -708,12 +986,46 @@ bool CGraphics::RemoveMesh(CMesh *& mesh)
 	return false;
 }
 
-CTerrainGrid * CGraphics::CreateTerrainGrid()
+CTerrain * CGraphics::CreateTerrain(std::string mapFile)
 {
-	CTerrainGrid* terrain = new CTerrainGrid(mpD3D->GetDevice());
-	//terrain->Initialise(mpD3D->GetDevice());
-	gLogger->WriteLine("Retrieved an instance of terrain but it will need to be initialised before use, if not we're going to attempt to render something which simply does not exist. Use terrainObj->CreateGrid() to create it. ");
+	CTerrain* terrain = new CTerrain(mpD3D->GetDevice());
+	gLogger->WriteLine("Created terrain from the graphics object.");
 	mpTerrainGrids.push_back(terrain);
+
+	// Check a map file was actually passed in.
+	if (mapFile != "")
+	{
+		// Attempt to load the height map passed in.
+		if (!terrain->LoadHeightMapFromFile(mapFile))
+		{
+			gLogger->WriteLine("Failed to load height map with name: " + mapFile);
+		}
+	}
+	else
+	{
+		gLogger->WriteLine("No map file was passed in, not attempting to load.");
+	}
+
+	// Initialise the terrain.
+	terrain->CreateTerrain(mpD3D->GetDevice());
+
+	return terrain;
+}
+
+CTerrain * CGraphics::CreateTerrain(double ** heightMap, int mapWidth, int mapHeight)
+{
+	CTerrain* terrain = new CTerrain(mpD3D->GetDevice());
+	gLogger->WriteLine("Created terrain from the graphics object.");
+	mpTerrainGrids.push_back(terrain);
+
+	// Loading height map
+	terrain->SetWidth(mapWidth);
+	terrain->SetHeight(mapHeight);
+	terrain->LoadHeightMap(heightMap);
+
+	// Initialise the terrain.
+	terrain->CreateTerrain(mpD3D->GetDevice());
+
 	return terrain;
 }
 
@@ -733,7 +1045,7 @@ CLight * CGraphics::CreateLight(D3DXVECTOR4 diffuseColour, D3DXVECTOR4 ambientCo
 	light->SetDiffuseColour(diffuseColour);
 	light->SetAmbientColour(ambientColour);
 	light->SetDirection({ 1.0f, 1.0f, 1.0f });
-	
+
 	// Stick the new instance on a list so we can track it, we can then ensure there are no memory leaks.
 	mpLights.push_back(light);
 
@@ -795,7 +1107,7 @@ CCamera* CGraphics::CreateCamera()
 	gLogger->MemoryAllocWriteLine(typeid(mpCamera).name());
 
 	// Set the initial camera position.
-	mpCamera->SetPosition(0.0f, 0.0f, 0.0f);
+	mpCamera->SetPosition(0.0f, 0.0f, -1.0f);
 
 	return mpCamera;
 }

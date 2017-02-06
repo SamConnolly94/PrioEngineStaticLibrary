@@ -19,61 +19,63 @@
     </ProjectConfiguration>
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="..\..\Prio-Engine\Prio Engine\Engine\Camera.h" />
-    <ClInclude Include="..\..\Prio-Engine\Prio Engine\Engine\ColourShader.h" />
-    <ClInclude Include="..\..\Prio-Engine\Prio Engine\Engine\Cube.h" />
-    <ClInclude Include="..\..\Prio-Engine\Prio Engine\Engine\D3D11.h" />
-    <ClInclude Include="..\..\Prio-Engine\Prio Engine\Engine\DiffuseLightShader.h" />
-    <ClInclude Include="..\..\Prio-Engine\Prio Engine\Engine\Engine.h" />
-    <ClInclude Include="..\..\Prio-Engine\Prio Engine\Engine\GameTimer.h" />
-    <ClInclude Include="..\..\Prio-Engine\Prio Engine\Engine\Graphics.h" />
-    <ClInclude Include="..\..\Prio-Engine\Prio Engine\Engine\Input.h" />
-    <ClInclude Include="..\..\Prio-Engine\Prio Engine\Engine\Light.h" />
-    <ClInclude Include="..\..\Prio-Engine\Prio Engine\Engine\Logger.h" />
-    <ClInclude Include="..\..\Prio-Engine\Prio Engine\Engine\Mesh.h" />
-    <ClInclude Include="..\..\Prio-Engine\Prio Engine\Engine\Model.h" />
-    <ClInclude Include="..\..\Prio-Engine\Prio Engine\Engine\ModelControl.h" />
-    <ClInclude Include="..\..\Prio-Engine\Prio Engine\Engine\Primitive.h" />
-    <ClInclude Include="..\..\Prio-Engine\Prio Engine\Engine\PrioEngineVars.h" />
-    <ClInclude Include="..\..\Prio-Engine\Prio Engine\Engine\SpecularLightingShader.h" />
-    <ClInclude Include="..\..\Prio-Engine\Prio Engine\Engine\Terrain.h" />
-    <ClInclude Include="..\..\Prio-Engine\Prio Engine\Engine\Texture.h" />
-    <ClInclude Include="..\..\Prio-Engine\Prio Engine\Engine\TextureShader.h" />
-    <ClInclude Include="..\..\Prio-Engine\Prio Engine\Engine\Triangle.h" />
-    <ClInclude Include="..\..\Prio-Engine\Prio Engine\Engine\VertexTypeManager.h" />
+    <ClInclude Include="Engine\2DImage.h" />
+    <ClInclude Include="Engine\Camera.h" />
+    <ClInclude Include="Engine\ColourShader.h" />
+    <ClInclude Include="Engine\Cube.h" />
+    <ClInclude Include="Engine\D3D11.h" />
+    <ClInclude Include="Engine\DiffuseLightShader.h" />
+    <ClInclude Include="Engine\Engine.h" />
+    <ClInclude Include="Engine\FontShader.h" />
+    <ClInclude Include="Engine\Frustum.h" />
+    <ClInclude Include="Engine\GameFont.h" />
+    <ClInclude Include="Engine\GameText.h" />
+    <ClInclude Include="Engine\GameTimer.h" />
+    <ClInclude Include="Engine\Graphics.h" />
+    <ClInclude Include="Engine\Input.h" />
+    <ClInclude Include="Engine\Light.h" />
+    <ClInclude Include="Engine\Logger.h" />
+    <ClInclude Include="Engine\Mesh.h" />
+    <ClInclude Include="Engine\Model.h" />
+    <ClInclude Include="Engine\ModelControl.h" />
+    <ClInclude Include="Engine\Primitive.h" />
+    <ClInclude Include="Engine\PrioEngineVars.h" />
+    <ClInclude Include="Engine\SpecularLightingShader.h" />
+    <ClInclude Include="Engine\Terrain.h" />
+    <ClInclude Include="Engine\TerrainShader.h" />
+    <ClInclude Include="Engine\Texture.h" />
+    <ClInclude Include="Engine\TextureShader.h" />
+    <ClInclude Include="Engine\Triangle.h" />
+    <ClInclude Include="Engine\VertexTypeManager.h" />
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="..\..\Prio-Engine\Prio Engine\Engine\Camera.cpp" />
-    <ClCompile Include="..\..\Prio-Engine\Prio Engine\Engine\ColourShader.cpp" />
-    <ClCompile Include="..\..\Prio-Engine\Prio Engine\Engine\Cube.cpp" />
-    <ClCompile Include="..\..\Prio-Engine\Prio Engine\Engine\D3D11.cpp" />
-    <ClCompile Include="..\..\Prio-Engine\Prio Engine\Engine\DiffuseLightShader.cpp" />
-    <ClCompile Include="..\..\Prio-Engine\Prio Engine\Engine\Engine.cpp" />
-    <ClCompile Include="..\..\Prio-Engine\Prio Engine\Engine\GameTimer.cpp" />
-    <ClCompile Include="..\..\Prio-Engine\Prio Engine\Engine\Graphics.cpp" />
-    <ClCompile Include="..\..\Prio-Engine\Prio Engine\Engine\Input.cpp" />
-    <ClCompile Include="..\..\Prio-Engine\Prio Engine\Engine\Light.cpp" />
-    <ClCompile Include="..\..\Prio-Engine\Prio Engine\Engine\Logger.cpp" />
-    <ClCompile Include="..\..\Prio-Engine\Prio Engine\Engine\Mesh.cpp" />
-    <ClCompile Include="..\..\Prio-Engine\Prio Engine\Engine\Model.cpp" />
-    <ClCompile Include="..\..\Prio-Engine\Prio Engine\Engine\ModelControl.cpp" />
-    <ClCompile Include="..\..\Prio-Engine\Prio Engine\Engine\Primitive.cpp" />
-    <ClCompile Include="..\..\Prio-Engine\Prio Engine\Engine\SpecularLightingShader.cpp" />
-    <ClCompile Include="..\..\Prio-Engine\Prio Engine\Engine\Terrain.cpp" />
-    <ClCompile Include="..\..\Prio-Engine\Prio Engine\Engine\Texture.cpp" />
-    <ClCompile Include="..\..\Prio-Engine\Prio Engine\Engine\TextureShader.cpp" />
-    <ClCompile Include="..\..\Prio-Engine\Prio Engine\Engine\Triangle.cpp" />
-    <ClCompile Include="..\..\Prio-Engine\Prio Engine\Engine\VertexTypeManager.cpp" />
-  </ItemGroup>
-  <ItemGroup>
-    <FxCompile Include="..\..\Prio-Engine\Prio Engine\Engine\Shaders\Colour.ps.hlsl" />
-    <FxCompile Include="..\..\Prio-Engine\Prio Engine\Engine\Shaders\Colour.vs.hlsl" />
-    <FxCompile Include="..\..\Prio-Engine\Prio Engine\Engine\Shaders\DiffuseLight.ps.hlsl" />
-    <FxCompile Include="..\..\Prio-Engine\Prio Engine\Engine\Shaders\DiffuseLight.vs.hlsl" />
-    <FxCompile Include="..\..\Prio-Engine\Prio Engine\Engine\Shaders\SpecularLight.ps.hlsl" />
-    <FxCompile Include="..\..\Prio-Engine\Prio Engine\Engine\Shaders\SpecularLight.vs.hlsl" />
-    <FxCompile Include="..\..\Prio-Engine\Prio Engine\Engine\Shaders\Texture.ps.hlsl" />
-    <FxCompile Include="..\..\Prio-Engine\Prio Engine\Engine\Shaders\Texture.vs.hlsl" />
+    <ClCompile Include="Engine\2DImage.cpp" />
+    <ClCompile Include="Engine\Camera.cpp" />
+    <ClCompile Include="Engine\ColourShader.cpp" />
+    <ClCompile Include="Engine\Cube.cpp" />
+    <ClCompile Include="Engine\D3D11.cpp" />
+    <ClCompile Include="Engine\DiffuseLightShader.cpp" />
+    <ClCompile Include="Engine\Engine.cpp" />
+    <ClCompile Include="Engine\FontShader.cpp" />
+    <ClCompile Include="Engine\Frustum.cpp" />
+    <ClCompile Include="Engine\GameFont.cpp" />
+    <ClCompile Include="Engine\GameText.cpp" />
+    <ClCompile Include="Engine\GameTimer.cpp" />
+    <ClCompile Include="Engine\Graphics.cpp" />
+    <ClCompile Include="Engine\Input.cpp" />
+    <ClCompile Include="Engine\Light.cpp" />
+    <ClCompile Include="Engine\Logger.cpp" />
+    <ClCompile Include="Engine\Mesh.cpp" />
+    <ClCompile Include="Engine\Model.cpp" />
+    <ClCompile Include="Engine\ModelControl.cpp" />
+    <ClCompile Include="Engine\Primitive.cpp" />
+    <ClCompile Include="Engine\SpecularLightingShader.cpp" />
+    <ClCompile Include="Engine\Terrain.cpp" />
+    <ClCompile Include="Engine\TerrainShader.cpp" />
+    <ClCompile Include="Engine\Texture.cpp" />
+    <ClCompile Include="Engine\TextureShader.cpp" />
+    <ClCompile Include="Engine\Triangle.cpp" />
+    <ClCompile Include="Engine\VertexTypeManager.cpp" />
   </ItemGroup>
   <PropertyGroup Label="Globals">
     <ProjectGuid>{6AF12153-2807-4DED-8B80-5428C551E381}</ProjectGuid>
@@ -127,12 +129,12 @@
   </ImportGroup>
   <PropertyGroup Label="UserMacros" />
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
-    <IncludePath>Engine\Dependencies\assimp-3.3.1\include\assimp;$(IncludePath);$(IncludePath);$(DXSDK_DIR)Include;</IncludePath>
-    <LibraryPath>$(VC_LibraryPath_x86);$(WindowsSDK_LibraryPath_x86);$(NETFXKitsDir)Lib\um\x86;Engine\Dependencies\assimp-3.3.1\lib\Debug;$(LibraryPath);;$(LibraryPath);$(DXSDK_DIR)Lib\x86</LibraryPath>
+    <IncludePath>$(IncludePath);$(DXSDK_DIR)Include;</IncludePath>
+    <LibraryPath>$(LibraryPath);$(DXSDK_DIR)Lib\x86</LibraryPath>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
-    <IncludePath>Engine\Dependencies\assimp-3.3.1\include\assimp;$(IncludePath);$(IncludePath);$(DXSDK_DIR)Include;</IncludePath>
-    <LibraryPath>$(VC_LibraryPath_x86);$(WindowsSDK_LibraryPath_x86);$(NETFXKitsDir)Lib\um\x86;Engine\Dependencies\assimp-3.3.1\lib\Release;$(LibraryPath);$(DXSDK_DIR)Lib\x86;;$(LibraryPath);$(DXSDK_DIR)Lib\x86</LibraryPath>
+    <IncludePath>$(IncludePath);$(DXSDK_DIR)Include;</IncludePath>
+    <LibraryPath>$(LibraryPath);$(DXSDK_DIR)Lib\x86</LibraryPath>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
     <IncludePath>Engine\Dependencies\assimp-3.3.1\include\assimp;$(IncludePath);$(IncludePath);$(DXSDK_DIR)Include;</IncludePath>
@@ -150,10 +152,19 @@
       <Optimization>Disabled</Optimization>
       <PreprocessorDefinitions>WIN32;_DEBUG;_LIB;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <SDLCheck>true</SDLCheck>
+      <AdditionalIncludeDirectories>Engine\Dependencies\AntTweakBar\include;Engine\Dependencies\assimp-3.3.1\include\assimp;</AdditionalIncludeDirectories>
     </ClCompile>
     <Link>
       <SubSystem>Windows</SubSystem>
     </Link>
+    <Lib>
+      <AdditionalLibraryDirectories>Engine\Dependencies\AntTweakBar\lib;Engine\Dependencies\assimp-3.3.1\lib\Debug;</AdditionalLibraryDirectories>
+      <AdditionalDependencies>AntTweakBar.lib;assimp_debug.lib;</AdditionalDependencies>
+    </Lib>
+    <PostBuildEvent>
+      <Command>
+      </Command>
+    </PostBuildEvent>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
     <ClCompile>
@@ -178,12 +189,17 @@
       <IntrinsicFunctions>true</IntrinsicFunctions>
       <PreprocessorDefinitions>WIN32;NDEBUG;_LIB;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <SDLCheck>true</SDLCheck>
+      <AdditionalIncludeDirectories>Engine\Dependencies\AntTweakBar\include;Engine\Dependencies\assimp-3.3.1\include\assimp;</AdditionalIncludeDirectories>
     </ClCompile>
     <Link>
       <SubSystem>Windows</SubSystem>
       <EnableCOMDATFolding>true</EnableCOMDATFolding>
       <OptimizeReferences>true</OptimizeReferences>
     </Link>
+    <Lib>
+      <AdditionalDependencies>AntTweakBar.lib;assimp_release.lib;</AdditionalDependencies>
+      <AdditionalLibraryDirectories>Engine\Dependencies\AntTweakBar\lib;Engine\Dependencies\assimp-3.3.1\lib\Release;</AdditionalLibraryDirectories>
+    </Lib>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
     <ClCompile>

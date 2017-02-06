@@ -11,18 +11,25 @@
 #include "ColourShader.h"
 #include "TextureShader.h"
 #include "DiffuseLightShader.h"
+#include "TerrainShader.h"
 #include "Light.h"
 #include "Terrain.h"
+#include "GameText.h"
+#include "2DImage.h"
+#include <AntTweakBar.h>
+#include "Frustum.h"
+#include <thread>
+#include <functional>
 
 // Global variables.
 // Will the window run in full screen?
-const bool FULL_SCREEN = false;
+
 // Will VSYNC be enabled? (Caps at your monitor refresh rate)
 const bool VSYNC_ENABLED = true;
 // Far clip
 const float SCREEN_DEPTH = 1000.0f;
 // Near clip
-const float SCREEN_NEAR = 0.1f;
+const float SCREEN_NEAR = 0.01f;
 
 class CGraphics
 {
@@ -30,6 +37,8 @@ private:
 	int mScreenWidth, mScreenHeight;
 	float mFieldOfView;
 	bool mWireframeEnabled;
+	CFrustum* mpFrustum;
+	bool mFullScreen = false;
 public:
 	CGraphics();
 	~CGraphics();
@@ -39,7 +48,12 @@ public:
 	bool Frame();
 private:
 	bool Render();
-
+private:
+	bool RenderModels(D3DXMATRIX world, D3DXMATRIX view, D3DXMATRIX proj);
+	bool RenderPrimitives(D3DXMATRIX world, D3DXMATRIX view, D3DXMATRIX proj);
+	bool RenderMeshes(D3DXMATRIX world, D3DXMATRIX view, D3DXMATRIX proj);
+	bool RenderTerrains(D3DXMATRIX world, D3DXMATRIX view, D3DXMATRIX proj);
+private:
 	CD3D11* mpD3D;
 
 	CCamera* mpCamera;
@@ -47,6 +61,9 @@ private:
 	CColourShader* mpColourShader;
 	CTextureShader* mpTextureShader;
 	CDiffuseLightShader* mpDiffuseLightShader;
+	CTerrainShader* mpTerrainShader;
+	CGameText* mpText;
+	D3DXMATRIX mBaseView;
 	
 	bool RenderPrimitiveWithTexture(CPrimitive* model, D3DXMATRIX worldMatrix, D3DXMATRIX viewMatrix, D3DXMATRIX projMatrix);
 	bool RenderPrimitiveWithColour(CPrimitive* model, D3DMATRIX worldMatrix, D3DMATRIX viewMatrix, D3DMATRIX projMatrix);
@@ -55,12 +72,15 @@ private:
 	std::list<CPrimitive*> mpPrimitives;
 	std::list<CMesh*> mpMeshes;
 	std::list<CLight*> mpLights;
-	std::list<CTerrainGrid*> mpTerrainGrids;
+	std::list<CTerrain*> mpTerrainGrids;
+	std::list<C2DImage*> mpUIImages;
 
 	bool CreateTextureShaderForModel(HWND hwnd);
 	bool CreateColourShader(HWND hwnd);
 	bool CreateTextureAndDiffuseLightShaderFromModel(HWND hwnd);
-	bool RenderModels(D3DXMATRIX view, D3DXMATRIX world, D3DXMATRIX proj);
+	bool CreateTerrainShader(HWND hwnd);
+	bool RenderText(D3DXMATRIX world, D3DXMATRIX view, D3DXMATRIX ortho);
+	bool RenderBitmaps(D3DXMATRIX world, D3DXMATRIX view, D3DXMATRIX ortho);
 
 	float mRotation;
 
@@ -78,7 +98,8 @@ public:
 	CMesh* LoadMesh(char * filename, WCHAR* textureFilename, PrioEngine::ShaderType shaderType);
 	bool RemoveMesh(CMesh* &mesh);
 
-	CTerrainGrid* CreateTerrainGrid();
+	CTerrain* CreateTerrain(std::string mapFile);
+	CTerrain* CreateTerrain(double ** heightMap, int mapWidth, int mapHeight);
 
 	CLight* CreateLight(D3DXVECTOR4 diffuseColour, D3DXVECTOR4 ambientColour);
 	bool RemoveLight(CLight* &light);
@@ -86,6 +107,16 @@ public:
 	CCamera* CreateCamera();
 	void SetCameraPos(float x, float y, float z);
 	void ToggleWireframe();
+	CCamera* GetMainCamera() {return mpCamera;};
+	SentenceType* CreateSentence(std::string text, int posX, int posY, int maxLength);
+	bool UpdateSentence(SentenceType* &sentence, std::string text, int posX, int posY, PrioEngine::RGB colour);
+	bool RemoveSentence(SentenceType* &sentence);
+
+	C2DImage* CreateUIImages(WCHAR* filename, int width, int height, int posX, int posY );
+	bool RemoveUIImage(C2DImage* &element);
+	bool UpdateTerrainBuffers(CTerrain* &terrain, double** heightmap, int width, int height);
+	bool IsFullscreen();
+	bool SetFullscreen(bool enabled);
 };
 
 #endif

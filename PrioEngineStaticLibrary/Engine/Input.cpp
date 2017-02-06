@@ -48,7 +48,7 @@ bool CInput::IsKeyDown(unsigned int key)
 /* If the key has been hit this frame then return true. Will not ring true if it was hit last frame as well.*/
 bool CInput::KeyHit(unsigned int key)
 {
-	return IsKeyDown(key) && !mWasHeldLastFrame[key];
+	return IsKeyDown(key);
 }
 
 /* If the key has been held for multiple frames then returns true. */

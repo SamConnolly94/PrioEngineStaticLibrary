@@ -195,7 +195,7 @@ void CLogger::MemoryAnalysis()
 			// Set the offset amount by this.
 			strOffset = strStartPos + block->classType.length();
 			// Find the end of the variable type name.
-			size_t endPoint = line.find('\\*');
+			size_t endPoint = static_cast<int>(line.find('\\*'));
 			// get the name of the variable type.
 			block->name = line.substr(strOffset + 1, endPoint - strOffset);
 
