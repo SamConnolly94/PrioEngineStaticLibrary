@@ -1,12 +1,11 @@
-#include "PrioEngineVars.h"
 #include "Engine.h"
+#include "PrioEngineVars.h"
 
 // Declaration of functions used to run game itself.
 void GameLoop(CEngine* &engine);
 void Control(CEngine* &engine, CCamera* cam, CTerrain* grid, float frameTime);
 
-// Globals
-CLogger* gLogger;
+CLogger* logger;
 
 // Main
 int WINAPI WinMain(HINSTANCE hInstance,	HINSTANCE hPrevInstance, LPSTR lpCmdLine, int nCmdShow)
@@ -15,7 +14,6 @@ int WINAPI WinMain(HINSTANCE hInstance,	HINSTANCE hPrevInstance, LPSTR lpCmdLine
 #if defined(DEBUG) | defined(_DEBUG)
 	_CrtSetDbgFlag(_CRTDBG_ALLOC_MEM_DF | _CRTDBG_LEAK_CHECK_DF);
 #endif
-	gLogger = new CLogger();
 	// Start the game engine.
 	CEngine* PrioEngine;
 	bool result;
@@ -26,11 +24,11 @@ int WINAPI WinMain(HINSTANCE hInstance,	HINSTANCE hPrevInstance, LPSTR lpCmdLine
 	if (!PrioEngine)
 	{
 		// Write a message to the log to let the user know we couldn't create the engine object.
-		gLogger->WriteLine("Could not create the engine object.");
+		logger->GetInstance().WriteLine("Could not create the engine object.");
 		// Return 0, we're saying we're okay, implement error codes in future versions maybe? 
 		return 0;
 	}
-	gLogger->MemoryAllocWriteLine(typeid(PrioEngine).name());
+	logger->GetInstance().MemoryAllocWriteLine(typeid(PrioEngine).name());
 
 	// Set up the engine.
 	result = PrioEngine->Initialise();
@@ -44,9 +42,9 @@ int WINAPI WinMain(HINSTANCE hInstance,	HINSTANCE hPrevInstance, LPSTR lpCmdLine
 	// Shutdown and release the engine.
 	PrioEngine->Shutdown();
 	delete PrioEngine;
-	gLogger->MemoryDeallocWriteLine(typeid(PrioEngine).name());
+	logger->GetInstance().MemoryDeallocWriteLine(typeid(PrioEngine).name());
 	PrioEngine = nullptr;
-	delete gLogger;
+	logger->GetInstance().Shutdown();
 
 	// The singleton logger will cause a memory leak. Don't worry about it. Should be no more than 64 bytes taken by it though, more likely will only take 48 bytes.
 	_CrtDumpMemoryLeaks();
@@ -71,29 +69,16 @@ void GameLoop(CEngine* &engine)
 	CCamera* myCam;
 	myCam = engine->GetMainCamera();
 
-	CLight* ambientLight;
 	CTerrain* terrain = engine->CreateTerrain("Default.map");
 
-	SentenceType* frametimeText = engine->CreateText("Frametime: ", frameTimePosX, frameTimePosY, 32);
-	SentenceType* FPSText = engine->CreateText("FPS: ", static_cast<int>(FPSPosX), static_cast<int>(FPSPosY), 32);
-
-	// Camera init.
-	myCam->SetPosizionY(30.0f);
-
-	// Light init
-	ambientLight = engine->CreateLight(D3DXVECTOR4{ 1.0f, 1.0f, 1.0f, 1.0f }, D3DXVECTOR4{ 0.15f, 0.15f, 0.15f, 1.0f });
-	ambientLight->SetDirection(D3DXVECTOR3{ 0.0, 0.0f, 1.0f });
-	ambientLight->SetSpecularColour(D3DXVECTOR4{ 1.0f, 1.0f, 1.0f, 1.0f });
-	ambientLight->SetSpecularPower(32.0f);
+	//SentenceType* frametimeText = engine->CreateText("Frametime: ", frameTimePosX, frameTimePosY, 32);
+	//SentenceType* FPSText = engine->CreateText("FPS: ", static_cast<int>(FPSPosX), static_cast<int>(FPSPosY), 32);
 
 	// Start the game timer running.
 	engine->StartTimer();
 
 	const float kTextUpdateInterval = 0.2f;
 	float timeSinceTextUpdate = kTextUpdateInterval;
-	TwBar* tweakBar = TwNewBar("My Tweak Bar");
-	int noVar = 0;
-	TwAddVarRW(tweakBar, "NameOfMyVariable", TW_TYPE_INT32, &noVar, "");
 
 	// Process anything which should happen in the game here.
 	while (engine->IsRunning())
@@ -107,8 +92,8 @@ void GameLoop(CEngine* &engine)
 		// Update the text on our game.
 		if (timeSinceTextUpdate >= kTextUpdateInterval)
 		{
-			engine->UpdateText(frametimeText, "FrameTime: " + std::to_string(frameTime), frameTimePosX, frameTimePosY, { 1.0f, 1.0f, 0.0f });
-			engine->UpdateText(FPSText, "FPS: " + std::to_string(1.0f / frameTime), static_cast<int>(FPSPosX), static_cast<int>(FPSPosY), { 1.0f, 1.0f, 0.0f });
+			//engine->UpdateText(frametimeText, "FrameTime: " + std::to_string(frameTime), frameTimePosX, frameTimePosY, { 1.0f, 1.0f, 0.0f });
+			//engine->UpdateText(FPSText, "FPS: " + std::to_string(1.0f / frameTime), static_cast<int>(FPSPosX), static_cast<int>(FPSPosY), { 1.0f, 1.0f, 0.0f });
 			timeSinceTextUpdate = 0.0f;
 		}
 		timeSinceTextUpdate += frameTime;

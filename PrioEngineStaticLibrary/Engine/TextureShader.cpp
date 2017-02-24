@@ -19,7 +19,7 @@ bool CTextureShader::Initialise(ID3D11Device * device, HWND hwnd)
 	bool result;
 
 	// Initialise the vertex pixel shaders.
-	result = InitialiseShader(device, hwnd, L"Shaders/Texture.vs.hlsl", L"Shaders/Texture.ps.hlsl");
+	result = InitialiseShader(device, hwnd, "Shaders/Texture.vs.hlsl", "Shaders/Texture.ps.hlsl");
 
 	if (!result)
 	{
@@ -43,7 +43,7 @@ bool CTextureShader::Render(ID3D11DeviceContext * deviceContext, int indexCount,
 	result = SetShaderParameters(deviceContext, worldMatrix, viewMatrix, projMatrix, texture);
 	if (!result)
 	{
-		gLogger->WriteLine("Failed to set the shader parameters in texture shader.");
+		logger->GetInstance().WriteLine("Failed to set the shader parameters in texture shader.");
 		return false;
 	}
 
@@ -53,7 +53,7 @@ bool CTextureShader::Render(ID3D11DeviceContext * deviceContext, int indexCount,
 	return true;
 }
 
-bool CTextureShader::InitialiseShader(ID3D11Device * device, HWND hwnd, WCHAR * vsFilename, WCHAR * psFilename)
+bool CTextureShader::InitialiseShader(ID3D11Device * device, HWND hwnd, std::string vsFilename, std::string psFilename)
 {
 	HRESULT result;
 	ID3D10Blob* errorMessage;
@@ -64,20 +64,13 @@ bool CTextureShader::InitialiseShader(ID3D11Device * device, HWND hwnd, WCHAR * 
 	D3D11_BUFFER_DESC matrixBufferDesc;
 	D3D11_SAMPLER_DESC samplerDesc;
 
-	// Convert the vs & ps filename to string for logging purposes.
-	std::wstring wsVs(vsFilename);
-	std::string vsFilenameStr(wsVs.begin(), wsVs.end());
-
-	std::wstring wsPs(psFilename);
-	std::string psFilenameStr(wsPs.begin(), wsPs.end());
-
 	// Initialise pointers in this function to null.
 	errorMessage = nullptr;
 	vertexShaderBuffer = nullptr;
 	pixelShaderBuffer = nullptr;
 
 	// Compile the vertex shader code.
-	result = D3DX11CompileFromFile(vsFilename, NULL, NULL, "TextureVertexShader", "vs_5_0", D3D10_SHADER_ENABLE_STRICTNESS, 0, NULL, &vertexShaderBuffer, &errorMessage, NULL);
+	result = D3DX11CompileFromFile(vsFilename.c_str(), NULL, NULL, "TextureVertexShader", "vs_5_0", D3D10_SHADER_ENABLE_STRICTNESS, 0, NULL, &vertexShaderBuffer, &errorMessage, NULL);
 	if (FAILED(result))
 	{
 		if (errorMessage)
@@ -86,15 +79,15 @@ bool CTextureShader::InitialiseShader(ID3D11Device * device, HWND hwnd, WCHAR * 
 		}
 		else
 		{
-			gLogger->WriteLine("Could not find a shader file with name '" + vsFilenameStr + "'");
-			MessageBox(hwnd, vsFilename, L"Missing shader file. ", MB_OK);
+			logger->GetInstance().WriteLine("Could not find a shader file with name '" + vsFilename + "'");
+			MessageBox(hwnd, vsFilename.c_str(), "Missing shader file. ", MB_OK);
 		}
-		gLogger->WriteLine("Failed to compile the vertex shader named '" + vsFilenameStr + "'");
+		logger->GetInstance().WriteLine("Failed to compile the vertex shader named '" + vsFilename + "'");
 		return false;
 	}
 
 	// Compile the pixel shader code.
-	result = D3DX11CompileFromFile(psFilename, NULL, NULL, "TexturePixelShader", "ps_5_0", D3D10_SHADER_ENABLE_STRICTNESS, 0, NULL, &pixelShaderBuffer, &errorMessage, NULL);
+	result = D3DX11CompileFromFile(psFilename.c_str(), NULL, NULL, "TexturePixelShader", "ps_5_0", D3D10_SHADER_ENABLE_STRICTNESS, 0, NULL, &pixelShaderBuffer, &errorMessage, NULL);
 	if (FAILED(result))
 	{
 		if (errorMessage)
@@ -103,10 +96,10 @@ bool CTextureShader::InitialiseShader(ID3D11Device * device, HWND hwnd, WCHAR * 
 		}
 		else
 		{
-			gLogger->WriteLine("Could not find a shader file with name '" + psFilenameStr + "'");
-			MessageBox(hwnd, psFilename, L"Missing shader file.", MB_OK);
+			logger->GetInstance().WriteLine("Could not find a shader file with name '" + psFilename + "'");
+			MessageBox(hwnd, psFilename.c_str(), "Missing shader file.", MB_OK);
 		}
-		gLogger->WriteLine("Failed to compile the pixel shader named '" + psFilenameStr + "'");
+		logger->GetInstance().WriteLine("Failed to compile the pixel shader named '" + psFilename + "'");
 		return false;
 	}
 
@@ -114,7 +107,7 @@ bool CTextureShader::InitialiseShader(ID3D11Device * device, HWND hwnd, WCHAR * 
 	result = device->CreateVertexShader(vertexShaderBuffer->GetBufferPointer(), vertexShaderBuffer->GetBufferSize(), NULL, &mpVertexShader);
 	if (FAILED(result))
 	{
-		gLogger->WriteLine("Failed to create the vertex shader from the buffer.");
+		logger->GetInstance().WriteLine("Failed to create the vertex shader from the buffer.");
 		return false;
 	}
 
@@ -122,7 +115,7 @@ bool CTextureShader::InitialiseShader(ID3D11Device * device, HWND hwnd, WCHAR * 
 	result = device->CreatePixelShader(pixelShaderBuffer->GetBufferPointer(), pixelShaderBuffer->GetBufferSize(), NULL, &mpPixelShader);
 	if (FAILED(result))
 	{
-		gLogger->WriteLine("Failed to create the pixel shader from the buffer.");
+		logger->GetInstance().WriteLine("Failed to create the pixel shader from the buffer.");
 		return false;
 	}
 
@@ -150,7 +143,7 @@ bool CTextureShader::InitialiseShader(ID3D11Device * device, HWND hwnd, WCHAR * 
 	result = device->CreateInputLayout(polygonLayout, numElements, vertexShaderBuffer->GetBufferPointer(), vertexShaderBuffer->GetBufferSize(), &mpLayout);
 	if (FAILED(result))
 	{
-		gLogger->WriteLine("Failed to create polygon layout.");
+		logger->GetInstance().WriteLine("Failed to create polygon layout.");
 		return false;
 	}
 
@@ -174,7 +167,7 @@ bool CTextureShader::InitialiseShader(ID3D11Device * device, HWND hwnd, WCHAR * 
 	result = device->CreateBuffer(&matrixBufferDesc, NULL, &mpMatrixBuffer);
 	if (FAILED(result))
 	{
-		gLogger->WriteLine("Failed to create the buffer pointer to access the vertex shader from within the texture shader class.");
+		logger->GetInstance().WriteLine("Failed to create the buffer pointer to access the vertex shader from within the texture shader class.");
 		return false;
 	}
 
@@ -198,7 +191,7 @@ bool CTextureShader::InitialiseShader(ID3D11Device * device, HWND hwnd, WCHAR * 
 	
 	if (FAILED(result))
 	{
-		gLogger->WriteLine("Failed to create the sampler state in TextureShader.cpp");
+		logger->GetInstance().WriteLine("Failed to create the sampler state in TextureShader.cpp");
 		return false;
 	}
 
@@ -238,7 +231,7 @@ void CTextureShader::ShutdownShader()
 	}
 }
 
-void CTextureShader::OutputShaderErrorMessage(ID3D10Blob * errorMessage, HWND hwnd, WCHAR * shaderFilename)
+void CTextureShader::OutputShaderErrorMessage(ID3D10Blob * errorMessage, HWND hwnd, std::string shaderFilename)
 {
 	std::string errMsg;
 	char* compileErrors;
@@ -260,14 +253,14 @@ void CTextureShader::OutputShaderErrorMessage(ID3D10Blob * errorMessage, HWND hw
 	}
 
 	// Write the error string to the logs.
-	gLogger->WriteLine(errMsg);
+	logger->GetInstance().WriteLine(errMsg);
 
 	// Clean up the BLOB file used to store the error message.
 	errorMessage->Release();
 	errorMessage = nullptr;
 
 	// Output a message box containing info describing what went wrong. Redirect to the logs.
-	MessageBox(hwnd, L"Error compiling the shader. Check the logs for a more detailed error message.", shaderFilename, MB_OK);
+	MessageBox(hwnd, "Error compiling the shader. Check the logs for a more detailed error message.", shaderFilename.c_str(), MB_OK);
 }
 
 bool CTextureShader::SetShaderParameters(ID3D11DeviceContext * deviceContext, D3DXMATRIX worldMatrix, D3DXMATRIX viewMatrix, D3DXMATRIX projMatrix, ID3D11ShaderResourceView * texture)
@@ -286,7 +279,7 @@ bool CTextureShader::SetShaderParameters(ID3D11DeviceContext * deviceContext, D3
 	result = deviceContext->Map(mpMatrixBuffer, 0, D3D11_MAP_WRITE_DISCARD, 0, &mappedResource);
 	if (FAILED(result))
 	{
-		gLogger->WriteLine("Failed to the lock the constant buffer so we could write to it in TextureShader.cpp.");
+		logger->GetInstance().WriteLine("Failed to the lock the constant buffer so we could write to it in TextureShader.cpp.");
 		return false;
 	}
 

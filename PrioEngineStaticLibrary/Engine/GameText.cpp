@@ -28,19 +28,19 @@ bool CGameText::Initialise(ID3D11Device * device, ID3D11DeviceContext * deviceCo
 	mpFont = new CGameFont();
 	if (!mpFont)
 	{
-		gLogger->WriteLine("Failed to allocate memory to the font pointer in CGameText.");
+		logger->GetInstance().WriteLine("Failed to allocate memory to the font pointer in CGameText.");
 		return false;
 	}
-	gLogger->MemoryAllocWriteLine(typeid(mpFont).name());
+	logger->GetInstance().MemoryAllocWriteLine(typeid(mpFont).name());
 	char* fontDataFile = "Resources/Fonts/font01.txt";
-	WCHAR* fontTextureFile = L"Resources/Fonts/font01.dds";
+	std::string fontTextureFile = "Resources/Fonts/font01.dds";
 
 	// Initailise the font.
 	result = mpFont->Initialise(device, fontDataFile, fontTextureFile);
 
 	if (!result)
 	{
-		gLogger->WriteLine("Failed to load Fonts/defaultData.txt or Fonts/font.dds or both.");
+		logger->GetInstance().WriteLine("Failed to load Fonts/defaultData.txt or Fonts/font.dds or both.");
 		return false;
 	}
 
@@ -50,10 +50,10 @@ bool CGameText::Initialise(ID3D11Device * device, ID3D11DeviceContext * deviceCo
 
 	if (!result)
 	{
-		gLogger->WriteLine("Failed to initialise the font object in GameText.cpp.");
+		logger->GetInstance().WriteLine("Failed to initialise the font object in GameText.cpp.");
 		return false;
 	}
-	gLogger->MemoryAllocWriteLine(typeid(mpFontShader).name());
+	logger->GetInstance().MemoryAllocWriteLine(typeid(mpFontShader).name());
 
 	return true;
 }
@@ -82,7 +82,7 @@ void CGameText::Shutdown()
 		mpFontShader->Shutdown();
 		delete mpFontShader;
 		mpFontShader = nullptr;
-		gLogger->MemoryDeallocWriteLine(typeid(mpFontShader).name());
+		logger->GetInstance().MemoryDeallocWriteLine(typeid(mpFontShader).name());
 	}
 
 	if (mpFont)
@@ -90,7 +90,7 @@ void CGameText::Shutdown()
 		mpFont->Shutdown();
 		delete mpFont;
 		mpFont = nullptr;
-		gLogger->MemoryDeallocWriteLine(typeid(mpFont).name());
+		logger->GetInstance().MemoryDeallocWriteLine(typeid(mpFont).name());
 	}
 }
 
@@ -110,7 +110,7 @@ bool CGameText::Render(ID3D11DeviceContext * deviceContext, D3DXMATRIX worldMatr
 		if (!result)
 		{
 			// Output error message to the log.
-			gLogger->WriteLine("Failed to render text.");
+			logger->GetInstance().WriteLine("Failed to render text.");
 			// Failure! Stop processing.
 			return false;
 		}
@@ -134,10 +134,10 @@ bool CGameText::InitialiseSentence(SentenceType** sentence, int maxLength, ID3D1
 	*sentence = new SentenceType();
 	if (!sentence)
 	{
-		gLogger->WriteLine("Failed to allocate memory to a sentence object in GameText.cpp.");
+		logger->GetInstance().WriteLine("Failed to allocate memory to a sentence object in GameText.cpp.");
 		return false;
 	}
-	gLogger->MemoryAllocWriteLine(typeid(sentence).name());
+	logger->GetInstance().MemoryAllocWriteLine(typeid(sentence).name());
 
 	// Track the pointer on our sentences list, don't want to lose this.
 	//mpSentences.push_back(sentence);
@@ -159,7 +159,7 @@ bool CGameText::InitialiseSentence(SentenceType** sentence, int maxLength, ID3D1
 	vertices = new VertexType[(*sentence)->vertexCount];
 	if (!vertices)
 	{
-		gLogger->WriteLine("Failed to allocate memory to the vertices buffer in GameText.cpp.");
+		logger->GetInstance().WriteLine("Failed to allocate memory to the vertices buffer in GameText.cpp.");
 		return false;
 	}
 
@@ -167,7 +167,7 @@ bool CGameText::InitialiseSentence(SentenceType** sentence, int maxLength, ID3D1
 	indices = new unsigned long[(*sentence)->indexCount];
 	if (!indices)
 	{
-		gLogger->WriteLine("Failed to allocate memory to the indices buffer in GameText.cpp.");
+		logger->GetInstance().WriteLine("Failed to allocate memory to the indices buffer in GameText.cpp.");
 		return false;
 	}
 	// Set vertex array to 0's to begin with.
@@ -197,7 +197,7 @@ bool CGameText::InitialiseSentence(SentenceType** sentence, int maxLength, ID3D1
 
 	if (FAILED(result))
 	{
-		gLogger->WriteLine("Failed to create the vertex buffer in DirectX after passing it vertex data in GameText.cpp.");
+		logger->GetInstance().WriteLine("Failed to create the vertex buffer in DirectX after passing it vertex data in GameText.cpp.");
 		return false;
 	}
 
@@ -219,7 +219,7 @@ bool CGameText::InitialiseSentence(SentenceType** sentence, int maxLength, ID3D1
 
 	if (FAILED(result))
 	{
-		gLogger->WriteLine("Faield to create the index buffer in DirectX after passing it index data in GameText.cpp.");
+		logger->GetInstance().WriteLine("Faield to create the index buffer in DirectX after passing it index data in GameText.cpp.");
 		return false;
 	}
 
@@ -248,12 +248,12 @@ bool CGameText::UpdateSentence(SentenceType* &sentence, std::string text, int po
 	sentence->blue = blue;
 
 	// Get the number of letters in the sentence.
-	numberOfLetters = static_cast<int>(strlen(text.c_str()));
+	numberOfLetters = static_cast<int>(text.length());
 	
 	// Check for buffer overflow.
 	if (numberOfLetters > sentence->maxLength)
 	{
-		gLogger->WriteLine("Sentence was too long. Would have caused buffer overflow.");
+		logger->GetInstance().WriteLine("Sentence was too long. Would have caused buffer overflow.");
 		return false;
 	}
 
@@ -263,7 +263,7 @@ bool CGameText::UpdateSentence(SentenceType* &sentence, std::string text, int po
 	// Check vertices array was allocated memory.
 	if (!vertices)
 	{
-		gLogger->WriteLine("Failed to allocate memory to vertices array in GameText.cpp.");
+		logger->GetInstance().WriteLine("Failed to allocate memory to vertices array in GameText.cpp.");
 		return false;
 	}
 
@@ -282,7 +282,7 @@ bool CGameText::UpdateSentence(SentenceType* &sentence, std::string text, int po
 
 	if (FAILED(result))
 	{
-		gLogger->WriteLine("Failed to map the resource when updating sentence in GameText.cpp.");
+		logger->GetInstance().WriteLine("Failed to map the resource when updating sentence in GameText.cpp.");
 		return false;
 	}
 
@@ -332,15 +332,15 @@ SentenceType* CGameText::CreateSentence(ID3D11Device* device, ID3D11DeviceContex
 	bool result = InitialiseSentence(&sentence, maxLength, device);
 	if (!result)
 	{
-		gLogger->WriteLine("Failed to initialise sentences.");
+		logger->GetInstance().WriteLine("Failed to initialise sentences.");
 		return nullptr;
 	}
 
-	result = UpdateSentence(sentence, text, posX, posY, 1.0f, 1.0f, 1.0f, deviceContext);
+	result = UpdateSentence(sentence, text.c_str(), posX, posY, 1.0f, 1.0f, 1.0f, deviceContext);
 
 	if (!result)
 	{
-		gLogger->WriteLine("Failed to update sentence.");
+		logger->GetInstance().WriteLine("Failed to update sentence.");
 		return nullptr;
 	}
 
@@ -371,7 +371,7 @@ void CGameText::ReleaseSentence(SentenceType* sentence)
 
 		delete (sentence);
 		(sentence) = nullptr;
-		gLogger->MemoryDeallocWriteLine(typeid(sentence).name());
+		logger->GetInstance().MemoryDeallocWriteLine(typeid(sentence).name());
 	}
 }
 

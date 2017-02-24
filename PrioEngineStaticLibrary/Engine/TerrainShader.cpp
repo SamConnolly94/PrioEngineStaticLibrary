@@ -8,11 +8,13 @@ CTerrainShader::CTerrainShader()
 	mpMatrixBuffer = nullptr;
 	mpSampleState = nullptr;
 	mpLightBuffer = nullptr;
-	mpTerrainConstBuffer = nullptr;
+	mpPatchMap = new CTexture();
 }
 
 CTerrainShader::~CTerrainShader()
 {
+	mpPatchMap->Shutdown();
+	delete mpPatchMap;
 }
 
 bool CTerrainShader::Initialise(ID3D11Device * device, HWND hwnd)
@@ -20,10 +22,19 @@ bool CTerrainShader::Initialise(ID3D11Device * device, HWND hwnd)
 	bool result;
 
 	// Initialise the vertex pixel shaders.
-	result = InitialiseShader(device, hwnd, L"Shaders/Terrain.vs.hlsl", L"Shaders/Terrain.ps.hlsl");
+	result = InitialiseShader(device, hwnd, "Shaders/Terrain.vs.hlsl", "Shaders/Terrain.ps.hlsl");
 
 	if (!result)
 	{
+		logger->GetInstance().WriteLine("Failed to initialise the vertex and pixel shaders when initialising the terrain shader class.");
+		return false;
+	}
+
+	result = mpPatchMap->Initialise(device, "Resources/Patch Maps/PatchMap.png");
+
+	if (!result)
+	{
+		logger->GetInstance().WriteLine("Failed to load the blend mask when initialising the terrain shader.");
 		return false;
 	}
 
@@ -37,12 +48,17 @@ void CTerrainShader::Shutdown()
 }
 
 bool CTerrainShader::Render(ID3D11DeviceContext* deviceContext, int indexCount, D3DXMATRIX worldMatrix, D3DXMATRIX viewMatrix,
-	D3DXMATRIX projMatrix, CTexture** textureArray, int numberOfTextures, D3DXVECTOR3 lightDirection, D3DXVECTOR4 diffuseColour, D3DXVECTOR4 ambientColour, float highestPos, float lowestPos, D3DXVECTOR3 worldPosition)
+	D3DXMATRIX projMatrix, CTexture** texturesArray, unsigned int numberOfTextures, CTexture** grassTexturesArray, unsigned int numberOfGrassTextures,
+	CTexture** rockTexturesArray, unsigned int numberOfRockTextures,
+	D3DXVECTOR3 lightDirection, D3DXVECTOR4 diffuseColour, D3DXVECTOR4 ambientColour, float highestPos, float lowestPos, D3DXVECTOR3 worldPosition,
+	float snowHeight, float grassHeight, float dirtHeight, float sandHeight)
 {
 	bool result;
 
 	// Set the shader parameters that it will use for rendering.
-	result = SetShaderParameters(deviceContext, worldMatrix, viewMatrix, projMatrix, textureArray, numberOfTextures, lightDirection, diffuseColour, ambientColour, highestPos, lowestPos, worldPosition);
+	result = SetShaderParameters(deviceContext, worldMatrix, viewMatrix, projMatrix, texturesArray, 
+		numberOfTextures, grassTexturesArray, numberOfGrassTextures, rockTexturesArray, numberOfRockTextures, lightDirection, 
+		diffuseColour, ambientColour, highestPos, lowestPos, worldPosition, snowHeight, grassHeight, dirtHeight, sandHeight);
 	if (!result)
 	{
 		return false;
@@ -54,7 +70,7 @@ bool CTerrainShader::Render(ID3D11DeviceContext* deviceContext, int indexCount, 
 	return true;
 }
 
-bool CTerrainShader::InitialiseShader(ID3D11Device * device, HWND hwnd, WCHAR * vsFilename, WCHAR * psFilename)
+bool CTerrainShader::InitialiseShader(ID3D11Device * device, HWND hwnd, std::string vsFilename, std::string psFilename)
 {
 	HRESULT result;
 	ID3D10Blob* errorMessage;
@@ -66,15 +82,8 @@ bool CTerrainShader::InitialiseShader(ID3D11Device * device, HWND hwnd, WCHAR * 
 	D3D11_BUFFER_DESC matrixBufferDesc;
 	D3D11_SAMPLER_DESC samplerDesc;
 	D3D11_BUFFER_DESC lightBufferDesc;
-	D3D11_BUFFER_DESC terrainBufferDesc;
 	D3D11_BUFFER_DESC positioningBufferDesc;
-
-	// Convert the vs & ps filename to string for logging purposes.
-	std::wstring wsVs(vsFilename);
-	std::string vsFilenameStr(wsVs.begin(), wsVs.end());
-
-	std::wstring wsPs(psFilename);
-	std::string psFilenameStr(wsPs.begin(), wsPs.end());
+	D3D11_BUFFER_DESC terrainAreaBufferDesc;
 
 	// Initialise pointers in this function to null.
 	errorMessage = nullptr;
@@ -82,36 +91,36 @@ bool CTerrainShader::InitialiseShader(ID3D11Device * device, HWND hwnd, WCHAR * 
 	pixelShaderBuffer = nullptr;
 
 	// Compile the vertex shader code.
-	result = D3DX11CompileFromFile(vsFilename, NULL, NULL, "TerrainVertex", "vs_5_0", D3D10_SHADER_ENABLE_STRICTNESS || (1 << 0), 0, NULL, &vertexShaderBuffer, &errorMessage, NULL);
+	result = D3DX11CompileFromFile(vsFilename.c_str(), NULL, NULL, "TerrainVertex", "vs_5_0", D3D10_SHADER_ENABLE_STRICTNESS || (1 << 0), 0, NULL, &vertexShaderBuffer, &errorMessage, NULL);
 	if (FAILED(result))
 	{
 		if (errorMessage)
 		{
-			OutputShaderErrorMessage(errorMessage, hwnd, vsFilename);
+			OutputShaderErrorMessage(errorMessage, hwnd, vsFilename.c_str());
 		}
 		else
 		{
-			gLogger->WriteLine("Could not find a shader file with name '" + vsFilenameStr + "'");
-			MessageBox(hwnd, vsFilename, L"Missing shader file. ", MB_OK);
+			logger->GetInstance().WriteLine("Could not find a shader file with name '" + vsFilename + "'");
+			MessageBox(hwnd, vsFilename.c_str(), "Missing shader file. ", MB_OK);
 		}
-		gLogger->WriteLine("Failed to compile the vertex shader named '" + vsFilenameStr + "'");
+		logger->GetInstance().WriteLine("Failed to compile the vertex shader named '" + vsFilename + "'");
 		return false;
 	}
 
 	// Compile the pixel shader code.
-	result = D3DX11CompileFromFile(psFilename, NULL, NULL, "TerrainPixel", "ps_5_0", D3D10_SHADER_ENABLE_STRICTNESS || (1 << 0), 0, NULL, &pixelShaderBuffer, &errorMessage, NULL);
+	result = D3DX11CompileFromFile(psFilename.c_str(), NULL, NULL, "TerrainPixel", "ps_5_0", D3D10_SHADER_ENABLE_STRICTNESS || (1 << 0), 0, NULL, &pixelShaderBuffer, &errorMessage, NULL);
 	if (FAILED(result))
 	{
 		if (errorMessage)
 		{
-			OutputShaderErrorMessage(errorMessage, hwnd, psFilename);
+			OutputShaderErrorMessage(errorMessage, hwnd, psFilename.c_str());
 		}
 		else
 		{
-			gLogger->WriteLine("Could not find a shader file with name '" + psFilenameStr + "'");
-			MessageBox(hwnd, psFilename, L"Missing shader file.", MB_OK);
+			logger->GetInstance().WriteLine("Could not find a shader file with name '" + psFilename + "'");
+			MessageBox(hwnd, psFilename.c_str(), "Missing shader file.", MB_OK);
 		}
-		gLogger->WriteLine("Failed to compile the pixel shader named '" + psFilenameStr + "'");
+		logger->GetInstance().WriteLine("Failed to compile the pixel shader named '" + psFilename + "'");
 		return false;
 	}
 
@@ -119,7 +128,7 @@ bool CTerrainShader::InitialiseShader(ID3D11Device * device, HWND hwnd, WCHAR * 
 	result = device->CreateVertexShader(vertexShaderBuffer->GetBufferPointer(), vertexShaderBuffer->GetBufferSize(), NULL, &mpVertexShader);
 	if (FAILED(result))
 	{
-		gLogger->WriteLine("Failed to create the vertex shader from the buffer.");
+		logger->GetInstance().WriteLine("Failed to create the vertex shader from the buffer.");
 		return false;
 	}
 
@@ -127,7 +136,7 @@ bool CTerrainShader::InitialiseShader(ID3D11Device * device, HWND hwnd, WCHAR * 
 	result = device->CreatePixelShader(pixelShaderBuffer->GetBufferPointer(), pixelShaderBuffer->GetBufferSize(), NULL, &mpPixelShader);
 	if (FAILED(result))
 	{
-		gLogger->WriteLine("Failed to create the pixel shader from the buffer.");
+		logger->GetInstance().WriteLine("Failed to create the pixel shader from the buffer.");
 		return false;
 	}
 
@@ -157,17 +166,6 @@ bool CTerrainShader::InitialiseShader(ID3D11Device * device, HWND hwnd, WCHAR * 
 	polygonLayout[polyIndex].InputSlotClass = D3D11_INPUT_PER_VERTEX_DATA;
 	polygonLayout[polyIndex].InstanceDataStepRate = 0;
 
-	//polyIndex = 2;
-	//// Position only has 2 co-ords. Only need format of R32G32.
-	//polygonLayout[2].SemanticName = "TEXCOORD";
-	//// Set the index of tex coord we're on (e.g., texcoord 0, texcoord 1).
-	//polygonLayout[2].SemanticIndex = 1;
-	//polygonLayout[2].Format = DXGI_FORMAT_R32G32_FLOAT;
-	//polygonLayout[2].InputSlot = 0;
-	//polygonLayout[2].AlignedByteOffset = D3D11_APPEND_ALIGNED_ELEMENT;
-	//polygonLayout[2].InputSlotClass = D3D11_INPUT_PER_VERTEX_DATA;
-	//polygonLayout[2].InstanceDataStepRate = 0;
-
 	polyIndex = 2;
 
 	polygonLayout[polyIndex].SemanticName = "NORMAL";
@@ -185,7 +183,7 @@ bool CTerrainShader::InitialiseShader(ID3D11Device * device, HWND hwnd, WCHAR * 
 	result = device->CreateInputLayout(polygonLayout, numElements, vertexShaderBuffer->GetBufferPointer(), vertexShaderBuffer->GetBufferSize(), &mpLayout);
 	if (FAILED(result))
 	{
-		gLogger->WriteLine("Failed to create polygon layout in Terrain Shader class.");
+		logger->GetInstance().WriteLine("Failed to create polygon layout in Terrain Shader class.");
 		return false;
 	}
 
@@ -216,7 +214,7 @@ bool CTerrainShader::InitialiseShader(ID3D11Device * device, HWND hwnd, WCHAR * 
 
 	if (FAILED(result))
 	{
-		gLogger->WriteLine("Failed to create the sampler state in TextureShader.cpp");
+		logger->GetInstance().WriteLine("Failed to create the sampler state in TextureShader.cpp");
 		return false;
 	}
 
@@ -233,7 +231,7 @@ bool CTerrainShader::InitialiseShader(ID3D11Device * device, HWND hwnd, WCHAR * 
 	result = device->CreateBuffer(&matrixBufferDesc, NULL, &mpMatrixBuffer);
 	if (FAILED(result))
 	{
-		gLogger->WriteLine("Failed to create the buffer pointer to access the vertex shader from within the texture shader class.");
+		logger->GetInstance().WriteLine("Failed to create the buffer pointer to access the vertex shader from within the texture shader class.");
 		return false;
 	}
 
@@ -247,22 +245,7 @@ bool CTerrainShader::InitialiseShader(ID3D11Device * device, HWND hwnd, WCHAR * 
 	result = device->CreateBuffer(&lightBufferDesc, NULL, &mpLightBuffer);
 	if (FAILED(result))
 	{
-		gLogger->WriteLine("Failed to create the buffer from the light buffer descriptor from within the texture diffuse light shader class.");
-		return false;
-	}
-	///////////////////
-	// Terrain buffer description
-	terrainBufferDesc.Usage = D3D11_USAGE_DYNAMIC;
-	terrainBufferDesc.ByteWidth = sizeof(TerrainInfoBufferType);
-	terrainBufferDesc.BindFlags = D3D11_BIND_CONSTANT_BUFFER;
-	terrainBufferDesc.CPUAccessFlags = D3D11_CPU_ACCESS_WRITE;
-	terrainBufferDesc.MiscFlags = 0;
-	terrainBufferDesc.StructureByteStride = 0;
-
-	result = device->CreateBuffer(&terrainBufferDesc, NULL, &mpTerrainConstBuffer);
-	if (FAILED(result))
-	{
-		gLogger->WriteLine("Failed to create the constant terrain information buffer in the terrrain shader from the terrain buffer description given.");
+		logger->GetInstance().WriteLine("Failed to create the buffer from the light buffer descriptor from within the texture diffuse light shader class.");
 		return false;
 	}
 
@@ -278,9 +261,28 @@ bool CTerrainShader::InitialiseShader(ID3D11Device * device, HWND hwnd, WCHAR * 
 	result = device->CreateBuffer(&positioningBufferDesc, NULL, &mpPositioningBuffer);
 	if (FAILED(result))
 	{
-		gLogger->WriteLine("Failed to create the constant position information buffer in the terrrain shader from the positioning buffer description given.");
+		logger->GetInstance().WriteLine("Failed to create the constant position information buffer in the terrrain shader from the positioning buffer description given.");
 		return false;
 	}
+
+	///////////////////////////
+	// Terrain area buffer description
+
+	terrainAreaBufferDesc.Usage = D3D11_USAGE_DYNAMIC;
+	terrainAreaBufferDesc.ByteWidth = sizeof(TerrainAreaBufferType);
+	terrainAreaBufferDesc.BindFlags = D3D11_BIND_CONSTANT_BUFFER;
+	terrainAreaBufferDesc.CPUAccessFlags = D3D11_CPU_ACCESS_WRITE;
+	terrainAreaBufferDesc.MiscFlags = 0;
+	terrainAreaBufferDesc.StructureByteStride = 0;
+
+	result = device->CreateBuffer(&terrainAreaBufferDesc, NULL, &mpTerrainAreaBuffer);
+
+	if (FAILED(result))
+	{
+		logger->GetInstance().WriteLine("Failed to create the terrain area constant buffer from the description provided.");
+		return false;
+	}
+
 	return true;
 }
 
@@ -291,11 +293,17 @@ void CTerrainShader::ShutdownShader()
 		mpLightBuffer->Release();
 		mpLightBuffer = nullptr;
 	}
-
-	if (mpTerrainConstBuffer)
+	
+	if (mpTerrainAreaBuffer)
 	{
-		mpTerrainConstBuffer->Release();
-		mpTerrainConstBuffer = nullptr;
+		mpTerrainAreaBuffer->Release();
+		mpTerrainAreaBuffer = nullptr;
+	}
+
+	if (mpPositioningBuffer)
+	{
+		mpPositioningBuffer->Release();
+		mpPositioningBuffer = nullptr;
 	}
 
 	if (mpSampleState)
@@ -329,7 +337,7 @@ void CTerrainShader::ShutdownShader()
 	}
 }
 
-void CTerrainShader::OutputShaderErrorMessage(ID3D10Blob *errorMessage, HWND hwnd, WCHAR * shaderFilename)
+void CTerrainShader::OutputShaderErrorMessage(ID3D10Blob *errorMessage, HWND hwnd, std::string shaderFilename)
 {
 	std::string errMsg;
 	char* compileErrors;
@@ -351,25 +359,40 @@ void CTerrainShader::OutputShaderErrorMessage(ID3D10Blob *errorMessage, HWND hwn
 	}
 
 	// Write the error string to the logs.
-	gLogger->WriteLine(errMsg);
+	logger->GetInstance().WriteLine(errMsg);
 
 	// Clean up the BLOB file used to store the error message.
 	errorMessage->Release();
 	errorMessage = nullptr;
 
 	// Output a message box containing info describing what went wrong. Redirect to the logs.
-	MessageBox(hwnd, L"Error compiling the shader. Check the logs for a more detailed error message.", shaderFilename, MB_OK);
+	MessageBox(hwnd, "Error compiling the shader. Check the logs for a more detailed error message.", shaderFilename.c_str(), MB_OK);
 }
 
-bool CTerrainShader::SetShaderParameters(ID3D11DeviceContext * deviceContext, D3DXMATRIX worldMatrix, D3DXMATRIX viewMatrix, 
-	D3DXMATRIX projMatrix, CTexture** textureArray, int numberOfTextures, D3DXVECTOR3 lightDirection, D3DXVECTOR4 diffuseColour,
-	D3DXVECTOR4 ambientColour, float highestPos, float lowestPos, D3DXVECTOR3 worldPosition)
+bool CTerrainShader::SetShaderParameters(ID3D11DeviceContext* deviceContext, D3DXMATRIX worldMatrix, D3DXMATRIX viewMatrix,
+	D3DXMATRIX projMatrix, CTexture** textureArray, unsigned int numberOfTextures, CTexture** grassTexturesArray, unsigned int numberOfGrassTextures,
+	CTexture** rockTexturesArray, unsigned int numberOfRockTextures,
+	D3DXVECTOR3 lightDirection, D3DXVECTOR4 diffuseColour, D3DXVECTOR4 ambientColour,
+	float highestPos, float lowestPos, D3DXVECTOR3 worldPosition, float snowHeight, float grassHeight, float dirtHeight, float sandHeight)
 {
 	ID3D11ShaderResourceView** textures = new ID3D11ShaderResourceView*[numberOfTextures];
+	ID3D11ShaderResourceView** grassTextures = new ID3D11ShaderResourceView*[numberOfGrassTextures];
+	ID3D11ShaderResourceView* patchMap = mpPatchMap->GetTexture();
+	ID3D11ShaderResourceView** rockTextures = new ID3D11ShaderResourceView*[numberOfRockTextures];
 
-	for (int i = 0; i < numberOfTextures; i++)
+	for (unsigned int i = 0; i < numberOfTextures; i++)
 	{
 		textures[i] = textureArray[i]->GetTexture();
+	}
+
+	for (unsigned int i = 0; i < numberOfGrassTextures; i++)
+	{
+		grassTextures[i] = grassTexturesArray[i]->GetTexture();
+	}
+
+	for (unsigned int i = 0; i < numberOfRockTextures; i++)
+	{
+		rockTextures[i] = rockTexturesArray[i]->GetTexture();
 	}
 
 	HRESULT result;
@@ -377,8 +400,8 @@ bool CTerrainShader::SetShaderParameters(ID3D11DeviceContext * deviceContext, D3
 	unsigned int bufferNumber;
 	MatrixBufferType* dataPtr;
 	LightBufferType* dataPtr2;
-	TerrainInfoBufferType* terrainConstBuffPtr;
 	PositioningBufferType* positioningConstBuffPtr;
+	TerrainAreaBufferType* terrainAreaConstBuffPtr;
 
 	// Transpose the matrices to prepare them for the shader.
 	D3DXMatrixTranspose(&worldMatrix, &worldMatrix);
@@ -411,6 +434,9 @@ bool CTerrainShader::SetShaderParameters(ID3D11DeviceContext * deviceContext, D3
 
 	// Set shader texture resource in the pixel shader.
 	deviceContext->PSSetShaderResources(0, numberOfTextures, textures);
+	deviceContext->PSSetShaderResources(numberOfTextures, numberOfGrassTextures, grassTextures);
+	deviceContext->PSSetShaderResources(numberOfTextures + numberOfGrassTextures, 1, &patchMap);
+	deviceContext->PSSetShaderResources(numberOfTextures + numberOfGrassTextures + 1, numberOfRockTextures, rockTextures);
 
 	// Lock the light constant buffer so it can be written to.
 	result = deviceContext->Map(mpLightBuffer, 0, D3D11_MAP_WRITE_DISCARD, 0, &mappedResource);
@@ -437,31 +463,6 @@ bool CTerrainShader::SetShaderParameters(ID3D11DeviceContext * deviceContext, D3
 	// Finally set the light constant buffer in the pixel shader with the updated values.
 	deviceContext->PSSetConstantBuffers(bufferNumber, 1, &mpLightBuffer);
 
-
-	// Lock the terrain info constant buffer so it can be written to.
-	result = deviceContext->Map(mpTerrainConstBuffer, 0, D3D11_MAP_WRITE_DISCARD, 0, &mappedResource);
-	if (FAILED(result))
-	{
-		gLogger->WriteLine("Failed to map the terrain cosntant buffer when setting shader parameters in terrain shader class.");
-		return false;
-	}
-
-	terrainConstBuffPtr = (TerrainInfoBufferType*)mappedResource.pData;
-
-	// Append the positions before it gets locked in the const buffer.
-	terrainConstBuffPtr->highestPosition = highestPos + worldPosition.y;
-	terrainConstBuffPtr->lowestPosition = lowestPos + worldPosition.y;
-	terrainConstBuffPtr->padding2 = { 0.0f, 0.0f };
-
-	// Unlock the terrain constant buffer.
-	deviceContext->Unmap(mpTerrainConstBuffer, 0);
-
-	// We'll need to modify the buffer position in the pixel shader as we're looking at the next buffer now.
-	bufferNumber = 1;
-
-	// Update the terrain constant buffer in the pixel shader.
-	deviceContext->PSSetConstantBuffers(bufferNumber, 1, &mpTerrainConstBuffer);
-
 	////////////////////////////////////////
 	// Positioning buffer.
 
@@ -469,7 +470,7 @@ bool CTerrainShader::SetShaderParameters(ID3D11DeviceContext * deviceContext, D3
 	result = deviceContext->Map(mpPositioningBuffer, 0, D3D11_MAP_WRITE_DISCARD, 0, &mappedResource);
 	if (FAILED(result))
 	{
-		gLogger->WriteLine("Failed to map the positioning cosntant buffer when setting shader parameters in terrain shader class.");
+		logger->GetInstance().WriteLine("Failed to map the positioning cosntant buffer when setting shader parameters in terrain shader class.");
 		return false;
 	}
 
@@ -483,12 +484,34 @@ bool CTerrainShader::SetShaderParameters(ID3D11DeviceContext * deviceContext, D3
 	deviceContext->Unmap(mpPositioningBuffer, 0);
 
 	// We'll need to modify the buffer position in the pixel shader as we're looking at the next buffer now.
-	bufferNumber = 2;
+	bufferNumber = 1;
 
 	// Update the terrain constant buffer in the pixel shader.
 	deviceContext->PSSetConstantBuffers(bufferNumber, 1, &mpPositioningBuffer);
 
+	result = deviceContext->Map(mpTerrainAreaBuffer, 0, D3D11_MAP_WRITE_DISCARD, 0, &mappedResource);
+
+	terrainAreaConstBuffPtr = (TerrainAreaBufferType*)mappedResource.pData;
+
+	// Append the positions before it gets locked in the const buffer.
+	terrainAreaConstBuffPtr->snowHeight = snowHeight + worldPosition.y;
+	terrainAreaConstBuffPtr->grassHeight = grassHeight + worldPosition.y;
+	terrainAreaConstBuffPtr->dirtHeight = dirtHeight + worldPosition.y;
+	terrainAreaConstBuffPtr->sandHeight = sandHeight + worldPosition.y;
+
+	// Unlock the terrain constant buffer.
+	deviceContext->Unmap(mpTerrainAreaBuffer, 0);
+
+	// We'll need to modify the buffer position in the pixel shader as we're looking at the next buffer now.
+	bufferNumber = 2;
+
+	// Update the terrain constant buffer in the pixel shader.
+	deviceContext->PSSetConstantBuffers(bufferNumber, 1, &mpTerrainAreaBuffer);
+
 	delete[] textures;
+	delete[] grassTextures;
+	delete[] rockTextures;
+
 	return true;
 }
 

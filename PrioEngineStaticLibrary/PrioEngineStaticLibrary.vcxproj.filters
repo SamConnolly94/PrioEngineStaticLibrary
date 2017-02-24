@@ -22,6 +22,8 @@
     <ClInclude Include="Engine\ModelControl.h" />
     <ClInclude Include="Engine\Primitive.h" />
     <ClInclude Include="Engine\PrioEngineVars.h" />
+    <ClInclude Include="Engine\SkyBox.h" />
+    <ClInclude Include="Engine\SkyboxShader.h" />
     <ClInclude Include="Engine\SpecularLightingShader.h" />
     <ClInclude Include="Engine\Terrain.h" />
     <ClInclude Include="Engine\TerrainShader.h" />
@@ -47,10 +49,13 @@
     <ClCompile Include="Engine\Input.cpp" />
     <ClCompile Include="Engine\Light.cpp" />
     <ClCompile Include="Engine\Logger.cpp" />
+    <ClCompile Include="Engine\Main.cpp" />
     <ClCompile Include="Engine\Mesh.cpp" />
     <ClCompile Include="Engine\Model.cpp" />
     <ClCompile Include="Engine\ModelControl.cpp" />
     <ClCompile Include="Engine\Primitive.cpp" />
+    <ClCompile Include="Engine\SkyBox.cpp" />
+    <ClCompile Include="Engine\SkyboxShader.cpp" />
     <ClCompile Include="Engine\SpecularLightingShader.cpp" />
     <ClCompile Include="Engine\Terrain.cpp" />
     <ClCompile Include="Engine\TerrainShader.cpp" />

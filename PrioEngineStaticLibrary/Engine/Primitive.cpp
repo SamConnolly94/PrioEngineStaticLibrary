@@ -3,7 +3,7 @@
 /*
 * @PARAM filename - The location of the texture and it's file name and extension from the executable file.
 */
-CPrimitive::CPrimitive(WCHAR* filename)
+CPrimitive::CPrimitive(std::string filename)
 {
 	// Initialise all variables to be null.
 	mpVertexBuffer = nullptr;
@@ -19,7 +19,7 @@ CPrimitive::CPrimitive(WCHAR* filename)
 	mpVertexManager = nullptr;
 }
 
-CPrimitive::CPrimitive(WCHAR* filename, bool useLighting)
+CPrimitive::CPrimitive(std::string filename, bool useLighting)
 {
 	// Initialise all variables to be null.
 	mpVertexBuffer = nullptr;
@@ -62,7 +62,7 @@ CPrimitive::~CPrimitive()
 	{
 		delete mpVertexManager;
 		mpVertexManager = nullptr;
-		gLogger->MemoryDeallocWriteLine(typeid(mpVertexManager).name());
+		logger->GetInstance().MemoryDeallocWriteLine(typeid(mpVertexManager).name());
 	}
 }
 
@@ -174,18 +174,18 @@ bool CPrimitive::LoadTexture(ID3D11Device * device)
 
 	if (!mpTexture)
 	{
-		gLogger->WriteLine("Failed to create the texture object.");
+		logger->GetInstance().WriteLine("Failed to create the texture object.");
 		return false;
 	}
 
-	gLogger->MemoryAllocWriteLine(typeid(mpTexture).name());
+	logger->GetInstance().MemoryAllocWriteLine(typeid(mpTexture).name());
 
 	// Initialise the texture object.
 	result = mpTexture->Initialise(device, mpTextureFilename);
 
 	if (!result)
 	{
-		gLogger->WriteLine("Failed to initialise the texture object. ");
+		logger->GetInstance().WriteLine("Failed to initialise the texture object. ");
 	}
 
 	return true;
@@ -199,12 +199,7 @@ void CPrimitive::ReleaseTexture()
 		mpTexture->Shutdown();
 		delete mpTexture;
 		mpTexture = nullptr;
-		gLogger->MemoryDeallocWriteLine(typeid(mpTexture).name());
-	}
-
-	if (mpTextureFilename)
-	{
-		mpTextureFilename = nullptr;
+		logger->GetInstance().MemoryDeallocWriteLine(typeid(mpTexture).name());
 	}
 }
 

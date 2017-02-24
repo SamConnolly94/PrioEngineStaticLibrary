@@ -2,7 +2,7 @@
 
 
 
-CTriangle::CTriangle(WCHAR* filename)
+CTriangle::CTriangle(std::string filename)
 {
 	// Initialise all variables to be null.
 	mpVertexBuffer = nullptr;
@@ -18,10 +18,10 @@ CTriangle::CTriangle(WCHAR* filename)
 	mShape = PrioEngine::Primitives::triangle;
 
 	mpVertexManager = new CVertexManager(PrioEngine::ShaderType::Texture, PrioEngine::Primitives::triangle);
-	gLogger->MemoryAllocWriteLine(typeid(mpVertexManager).name());
+	logger->GetInstance().MemoryAllocWriteLine(typeid(mpVertexManager).name());
 }
 
-CTriangle::CTriangle(WCHAR * filename, bool useLighting)
+CTriangle::CTriangle(std::string filename, bool useLighting)
 {
 	// Initialise all variables to be null.
 	mpVertexBuffer = nullptr;
@@ -46,7 +46,7 @@ CTriangle::CTriangle(WCHAR * filename, bool useLighting)
 	{
 		mpVertexManager = new CVertexManager(PrioEngine::ShaderType::Texture, PrioEngine::Primitives::triangle);
 	}
-	gLogger->MemoryAllocWriteLine(typeid(mpVertexManager).name());
+	logger->GetInstance().MemoryAllocWriteLine(typeid(mpVertexManager).name());
 }
 
 CTriangle::CTriangle(PrioEngine::RGBA colour)
@@ -64,7 +64,7 @@ CTriangle::CTriangle(PrioEngine::RGBA colour)
 	mShape = PrioEngine::Primitives::triangle;
 
 	mpVertexManager = new CVertexManager(PrioEngine::ShaderType::Colour, PrioEngine::Primitives::triangle);
-	gLogger->MemoryAllocWriteLine(typeid(mpVertexManager).name());
+	logger->GetInstance().MemoryAllocWriteLine(typeid(mpVertexManager).name());
 
 	mpVertexManager->SetColour(colour);
 }
@@ -79,7 +79,7 @@ bool CTriangle::Initialise(ID3D11Device * device)
 	mpDevice = device;
 	mpVertexManager->SetDevicePtr(device);
 	bool result;
-	mApplyTexture = mpTextureFilename != nullptr;
+	mApplyTexture = mpTextureFilename != "";
 
 	// Initialise the vertex and index buffer that hold geometry for the triangle.
 	result = InitialiseBuffers(device);
@@ -123,7 +123,7 @@ bool CTriangle::InitialiseBuffers(ID3D11Device * device)
 
 	// Create the index array.
 	indices = new unsigned long[mIndexCount];
-	gLogger->MemoryAllocWriteLine(typeid(indices).name());
+	logger->GetInstance().MemoryAllocWriteLine(typeid(indices).name());
 	if (!indices)
 	{
 		return false;
@@ -165,7 +165,7 @@ bool CTriangle::InitialiseBuffers(ID3D11Device * device)
 
 	delete[] indices;
 	indices = nullptr;
-	gLogger->MemoryDeallocWriteLine(typeid(indices).name());
+	logger->GetInstance().MemoryDeallocWriteLine(typeid(indices).name());
 
 	return true;
 }

@@ -29,7 +29,7 @@ CLogger::CLogger()
 		mLoggingEnabled = false;
 
 		// Output error message to user.
-		MessageBox(NULL, L"Could not open the debug log to write to it, make sure you haven't left it open. The program will continue to run but without logging.", L"Could not open debug log!", MB_OK);
+		MessageBox(NULL, "Could not open the debug log to write to it, make sure you haven't left it open. The program will continue to run but without logging.", "Could not open debug log!", MB_OK);
 
 	}
 
@@ -41,8 +41,7 @@ CLogger::CLogger()
 	}
 	else
 	{
-		MessageBox(NULL, L"Could not open the memory log to write to it, make sure you haven't left it open. The program will continue to run but without logging.", L"Could not open memory log!", MB_OK);
-
+		MessageBox(NULL, "Could not open the memory log to write to it, make sure you haven't left it open. The program will continue to run but without logging.", "Could not open memory log!", MB_OK);
 	}
 
 #endif
@@ -50,10 +49,10 @@ CLogger::CLogger()
 }
 
 // Destructor.
-CLogger::~CLogger()
+void CLogger::Shutdown()
 {
 	// Analyse the memory allocated / deallocated messages and check for anything missing.
-	MemoryAnalysis();
+	//MemoryAnalysis();
 
 	// Close the memory dump log.
 	mMemoryLogFile.close();
@@ -80,7 +79,9 @@ void CLogger::WriteLine(std::string text)
 		}
 		else 
 		{
-			MessageBox(0, L"Log is not open or cannot be written to so the WriteLine of the logger has failed. ", L"Log not open!", MB_OK);
+			std::string errMsg = "Log is not open or cannot be written to so the WriteLine of the logger has failed. ";
+			std::string msgTitle = "Log not open!";
+			MessageBox(0, errMsg.c_str(), msgTitle.c_str(), MB_OK);
 		}
 	}
 }
@@ -101,7 +102,7 @@ void CLogger::MemoryAllocWriteLine(std::string name)
 		}
 		else
 		{
-			MessageBox(0, L"Memory log is not open or cannot be written to so the WriteLine of the logger has failed. ", L"Memory log not opened!", MB_OK);
+			MessageBox(0, "Memory log is not open or cannot be written to so the WriteLine of the logger has failed. ", "Memory log not opened!", MB_OK);
 		}
 	}
 }
@@ -117,11 +118,13 @@ void CLogger::MemoryDeallocWriteLine(std::string name)
 		// Check that the log file we want to write to is open and available.
 		if (mMemoryLogFile.is_open())
 		{
-			mMemoryLogFile << std::setfill('0') << std::setw(5) << mMemoryLogLineNumber << " Variable of type " << name << " memory was deallocated." << std::endl;
+			mMemoryLogFile << std::setfill('0') << std::setw(5) << mMemoryLogLineNumber << " Variable of type " << name.c_str() << " memory was deallocated." << std::endl;
 		}
 		else
 		{
-			MessageBox(0, L"Memory log is not open or cannot be written to so the WriteLine of the logger has failed. ", L"Memory log not opened!", MB_OK);
+			std::string errMsg = "Memory log is not open or cannot be written to so the WriteLine of the logger has failed. ";
+			std::string errTitle = "Memory log not opened!";
+			MessageBox(0, errMsg.c_str(), errTitle.c_str(), MB_OK);
 		}
 	}
 }
@@ -131,7 +134,7 @@ void CLogger::WriteSubtitle(std::string name)
 {
 	WriteLine("");
 	WriteLine(k256Astericks);
-	WriteLine(name);
+	WriteLine(name.c_str());
 	WriteLine(k256Astericks);
 	WriteLine("");
 }
@@ -167,18 +170,15 @@ void CLogger::MemoryAnalysis()
 	inFile.open(mMemoryLogName);
 	const std::string allocMessage = "Variable of type ";
 
-	while (!inFile.eof())
+	std::string line = "";
+	while (std::getline(inFile, line))
 	{
 		MemoryBlock* block = new MemoryBlock();
 		//MemoryAllocWriteLine(typeid(block).name());
 
 		std::string variableName = "";
-		std::string line = "";
 		size_t strStartPos = 0;
 		size_t strOffset = 0;
-
-		// Read the line out of the infile.
-		std::getline(inFile, line);
 
 		if (line != "")
 		{
@@ -263,23 +263,23 @@ void CLogger::MemoryAnalysis()
 
 	WriteSubtitle("Memory dump summary.");
 
-	while (!allocList.empty())
+	for (auto memBlock : allocList)
 	{
 		if (allocList.back()->name != "FOUND")
 		{
 			WriteLine("Memory was given to " + allocList.back()->classType + " " + allocList.back()->name + " but never deallocated.");
 		}
-		delete allocList.back();
-		//MemoryDeallocWriteLine(typeid(allocList.back()).name());
-		allocList.pop_back();
+		delete memBlock;
 	}
 
-	while (!deallocList.empty())
+	allocList.clear();
+
+	for (auto memBlock : deallocList)
 	{
-		delete deallocList.back();
-		//MemoryDeallocWriteLine(typeid(deallocList.back()).name());
-		deallocList.pop_back();
+		delete memBlock;
 	}
+	deallocList.clear();
+
 	WriteLine("");
 	WriteLine(k256Astericks);
 	WriteLine("Memory dump summary complete.");

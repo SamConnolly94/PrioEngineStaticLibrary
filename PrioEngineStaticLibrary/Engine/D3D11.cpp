@@ -5,6 +5,7 @@ CD3D11::CD3D11()
 	mGraphicsCardName = "";
 	mpAlphaBlendingStateDisabled = nullptr;
 	mpAlphaBlendingStateEnabled = nullptr;	
+	mpRasterStateNoCulling = nullptr;
 }
 
 
@@ -32,6 +33,7 @@ bool CD3D11::Initialise(int screenWidth, int screenHeight, bool vsync, HWND hwnd
 	D3D11_DEPTH_STENCIL_DESC depthDisabledStencilBufferDesc;
 	D3D11_DEPTH_STENCIL_VIEW_DESC depthStencilViewDesc;
 	D3D11_RASTERIZER_DESC rasterDesc;
+	D3D11_RASTERIZER_DESC noCullRasterDesc;
 	D3D11_VIEWPORT viewport;
 	D3D11_BLEND_DESC blendStateDesc;
 
@@ -48,7 +50,7 @@ bool CD3D11::Initialise(int screenWidth, int screenHeight, bool vsync, HWND hwnd
 	if (FAILED(result))
 	{
 		// Output failure message to log.
-		gLogger->WriteLine("Failed to create a Direct X Graphics Interface Factory.");
+		logger->GetInstance().WriteLine("Failed to create a Direct X Graphics Interface Factory.");
 		// Stop!
 		return false;
 	}
@@ -59,7 +61,7 @@ bool CD3D11::Initialise(int screenWidth, int screenHeight, bool vsync, HWND hwnd
 	if (FAILED(result))
 	{
 		// Log the error message.
-		gLogger->WriteLine("Failed to create an adapter for our graphics card.");
+		logger->GetInstance().WriteLine("Failed to create an adapter for our graphics card.");
 		// Stop!
 		return false;
 	}
@@ -70,7 +72,7 @@ bool CD3D11::Initialise(int screenWidth, int screenHeight, bool vsync, HWND hwnd
 	if (FAILED(result))
 	{
 		// Log the error message.
-		gLogger->WriteLine("Failed to initialise adapter outputs. This means we could not find the primary monitor the graphics card is connected to.");
+		logger->GetInstance().WriteLine("Failed to initialise adapter outputs. This means we could not find the primary monitor the graphics card is connected to.");
 		// Stop!
 		return false;
 	}
@@ -81,7 +83,7 @@ bool CD3D11::Initialise(int screenWidth, int screenHeight, bool vsync, HWND hwnd
 	if (FAILED(result))
 	{
 		// Log the error message.
-		gLogger->WriteLine("Did not successfully acquire the number of modes that our monitor supports.");
+		logger->GetInstance().WriteLine("Did not successfully acquire the number of modes that our monitor supports.");
 		// Stop!
 		return false;
 	}
@@ -92,12 +94,12 @@ bool CD3D11::Initialise(int screenWidth, int screenHeight, bool vsync, HWND hwnd
 	if (!displayModeList)
 	{
 		// Log the error message.
-		gLogger->WriteLine("Failed to store any display modes for this graphics card and monitor.");
+		logger->GetInstance().WriteLine("Failed to store any display modes for this graphics card and monitor.");
 		// Stop!
 		return false;
 	}
 
-	gLogger->MemoryAllocWriteLine(typeid(displayModeList).name());
+	logger->GetInstance().MemoryAllocWriteLine(typeid(displayModeList).name());
 
 	// Fill the display mode list struct.
 	result = adapterOutput->GetDisplayModeList(DXGI_FORMAT_R8G8B8A8_UNORM, DXGI_ENUM_MODES_INTERLACED, &numModes, displayModeList);
@@ -105,7 +107,7 @@ bool CD3D11::Initialise(int screenWidth, int screenHeight, bool vsync, HWND hwnd
 	if (FAILED(result))
 	{
 		// Log the error message.
-		gLogger->WriteLine("Failed to populate the display mode list structure.");
+		logger->GetInstance().WriteLine("Failed to populate the display mode list structure.");
 		// Stop!
 		return false;
 	}
@@ -133,7 +135,7 @@ bool CD3D11::Initialise(int screenWidth, int screenHeight, bool vsync, HWND hwnd
 	if (FAILED(result))
 	{
 		// Log the error message.
-		gLogger->WriteLine("Failed to retrieve the description of the graphics card / adapter.");
+		logger->GetInstance().WriteLine("Failed to retrieve the description of the graphics card / adapter.");
 		// Stop!
 		return false;
 	}
@@ -152,7 +154,7 @@ bool CD3D11::Initialise(int screenWidth, int screenHeight, bool vsync, HWND hwnd
 	if (mGraphicsCardDescription == "")
 	{
 		// Output the error message to the log.
-		gLogger->WriteLine("Could not parse the name of the graphics card from the descriptor.");
+		logger->GetInstance().WriteLine("Could not parse the name of the graphics card from the descriptor.");
 		// Stop!
 		return false;
 	}
@@ -161,12 +163,12 @@ bool CD3D11::Initialise(int screenWidth, int screenHeight, bool vsync, HWND hwnd
 	
 
 	// Output the name of the graphics card to the log.
-	gLogger->WriteLine("Got the name of the graphics card: '" + mGraphicsCardName + "'" );
+	logger->GetInstance().WriteLine("Got the name of the graphics card: '" + mGraphicsCardName + "'" );
 
 	// Release the structures and interfaces we used to get monitor refresh rate.
 	delete [] displayModeList;
 	displayModeList = NULL;
-	gLogger->MemoryDeallocWriteLine(typeid(displayModeList).name());
+	logger->GetInstance().MemoryDeallocWriteLine(typeid(displayModeList).name());
 
 	// Release the adapter output (monitor).
 	adapterOutput->Release();
@@ -193,7 +195,7 @@ bool CD3D11::Initialise(int screenWidth, int screenHeight, bool vsync, HWND hwnd
 	if (FAILED(result))
 	{
 		// Log the error message.
-		gLogger->WriteLine("Could not get the pointer to the back buffer.");
+		logger->GetInstance().WriteLine("Could not get the pointer to the back buffer.");
 		// Stop!
 		return false;
 	}
@@ -204,7 +206,7 @@ bool CD3D11::Initialise(int screenWidth, int screenHeight, bool vsync, HWND hwnd
 	if (FAILED(result))
 	{
 		// Log the error message.
-		gLogger->WriteLine("Failed to create the render target view.");
+		logger->GetInstance().WriteLine("Failed to create the render target view.");
 		// Stop!
 		return false;
 	}
@@ -248,6 +250,26 @@ bool CD3D11::Initialise(int screenWidth, int screenHeight, bool vsync, HWND hwnd
 		return false;
 	}
 
+	// Setup a raster description which turns off back face culling.
+	noCullRasterDesc.AntialiasedLineEnable = false;
+	noCullRasterDesc.CullMode = D3D11_CULL_NONE;
+	noCullRasterDesc.DepthBias = 0;
+	noCullRasterDesc.DepthBiasClamp = 0.0f;
+	noCullRasterDesc.DepthClipEnable = true;
+	noCullRasterDesc.FillMode = D3D11_FILL_SOLID;
+	noCullRasterDesc.FrontCounterClockwise = false;
+	noCullRasterDesc.MultisampleEnable = false;
+	noCullRasterDesc.ScissorEnable = false;
+	noCullRasterDesc.SlopeScaledDepthBias = 0.0f;
+
+	// Create the no culling rasterizer state.
+	result = mpDevice->CreateRasterizerState(&noCullRasterDesc, &mpRasterStateNoCulling);
+	if (FAILED(result))
+	{
+		logger->GetInstance().WriteLine("Failed to create the rasterizer state with no culling.");
+		return false;
+	}
+
 	/* Set up the viewport for Direct3D to clip map space coordinates. */
 
 	// Setup the viewport for rendering.
@@ -285,7 +307,7 @@ bool CD3D11::Initialise(int screenWidth, int screenHeight, bool vsync, HWND hwnd
 	 result = mpDevice->CreateBlendState(&blendStateDesc, &mpAlphaBlendingStateEnabled);
 	 if (FAILED(result))
 	 {
-		 gLogger->WriteLine("Failed to create the alpha blending state enabled from descriptor.");
+		 logger->GetInstance().WriteLine("Failed to create the alpha blending state enabled from descriptor.");
 		 return false;
 	 }
 
@@ -295,7 +317,7 @@ bool CD3D11::Initialise(int screenWidth, int screenHeight, bool vsync, HWND hwnd
 	 result = mpDevice->CreateBlendState(&blendStateDesc, &mpAlphaBlendingStateDisabled);
 	 if (FAILED(result))
 	 {
-		 gLogger->WriteLine("Failed to create the alpha blending state disabled from descriptor.");
+		 logger->GetInstance().WriteLine("Failed to create the alpha blending state disabled from descriptor.");
 		 return false;
 	 }
 
@@ -306,7 +328,7 @@ bool CD3D11::Initialise(int screenWidth, int screenHeight, bool vsync, HWND hwnd
 /* Clean up function. Should be called when the application is closing. Always call from parent cleanup function, NOWHERE ELSE. */
 void CD3D11::Shutdown()
 {
-	gLogger->WriteLine("DirectX Shutdown Function Initialised.");
+	logger->GetInstance().WriteLine("DirectX Shutdown Function Initialised.");
 
 	// If swap chain has been intialised.
 	if (mpSwapChain)
@@ -314,7 +336,7 @@ void CD3D11::Shutdown()
 		// Set to windowed mode before shutting down or swap chain throws an exception.
 		mpSwapChain->SetFullscreenState(false, NULL);
 		// Output change in window to log.
-		gLogger->WriteLine("Set to windowed mode.");
+		logger->GetInstance().WriteLine("Set to windowed mode.");
 	}
 
 	// If blending state initialised.
@@ -337,6 +359,12 @@ void CD3D11::Shutdown()
 		// Release the rasterizer.
 		mpRasterizerState->Release();
 		mpRasterizerState = nullptr;
+	}
+
+	if (mpRasterStateNoCulling)
+	{
+		mpRasterStateNoCulling->Release();
+		mpRasterStateNoCulling = nullptr;
 	}
 
 	// If depth stencil view has been initialised.
@@ -402,7 +430,7 @@ void CD3D11::Shutdown()
 	}
 
 	// Output success message to log.
-	gLogger->WriteLine("Successfully cleaned up anything related to directX used for this program.");
+	logger->GetInstance().WriteLine("Successfully cleaned up anything related to directX used for this program.");
 
 	// Complete! Return.
 	return;
@@ -482,8 +510,8 @@ void CD3D11::EnableWireframeFill()
 
 	// Set up the description for the raster which dictates how many polygons are drawn.
 	rasterDesc.AntialiasedLineEnable = false;
+	//rasterDesc.CullMode = D3D11_CULL_BACK;
 	rasterDesc.CullMode = D3D11_CULL_BACK;
-	//rasterDesc.CullMode = D3D11_CULL_NONE;
 	rasterDesc.DepthBias = 0;
 	rasterDesc.DepthBiasClamp = 0.0f;
 	rasterDesc.DepthClipEnable = true;
@@ -499,12 +527,12 @@ void CD3D11::EnableWireframeFill()
 	if (FAILED(result))
 	{
 		// Log the error message
-		gLogger->WriteLine("Failed to create the rasterizer from the description provided.");
+		logger->GetInstance().WriteLine("Failed to create the rasterizer from the description provided.");
 	}
 
 	// Set the rasterizer state.
 	mpDeviceContext->RSSetState(mpRasterizerState);
-	gLogger->WriteLine("Rasterizer state changed to use wireframe fill.");
+	logger->GetInstance().WriteLine("Rasterizer state changed to use wireframe fill.");
 }
 
 void CD3D11::EnableSolidFill()
@@ -516,6 +544,7 @@ void CD3D11::EnableSolidFill()
 
 	// Set up the description for the raster which dictates how many polygons are drawn.
 	rasterDesc.AntialiasedLineEnable = false;
+	//rasterDesc.CullMode = D3D11_CULL_BACK;
 	rasterDesc.CullMode = D3D11_CULL_BACK;
 	rasterDesc.DepthBias = 0;
 	rasterDesc.DepthBiasClamp = 0.0f;
@@ -532,13 +561,13 @@ void CD3D11::EnableSolidFill()
 	if (FAILED(result))
 	{
 		// Log the error message
-		gLogger->WriteLine("Failed to create the rasterizer from the description provided.");
+		logger->GetInstance().WriteLine("Failed to create the rasterizer from the description provided.");
 	}
 
 	// Set the rasterizer state.
 	mpDeviceContext->RSSetState(mpRasterizerState);
 
-	gLogger->WriteLine("Rasterizer state changed to use solid fill.");
+	logger->GetInstance().WriteLine("Rasterizer state changed to use solid fill.");
 }
 
 void CD3D11::EnableAlphaBlending()
@@ -653,7 +682,7 @@ bool CD3D11::CreateSwapChain(D3D_FEATURE_LEVEL & featureLevel, DXGI_SWAP_CHAIN_D
 	if (FAILED(result))
 	{
 		// Log the error message.
-		gLogger->WriteLine("Could not successfully create the device and swap chain.");
+		logger->GetInstance().WriteLine("Could not successfully create the device and swap chain.");
 		// Stop!
 		return false;
 	}
@@ -687,7 +716,7 @@ bool CD3D11::CreateDepthBuffer(D3D11_TEXTURE2D_DESC& depthBufferDesc)
 	if (FAILED(result))
 	{
 		// Log the error message.
-		gLogger->WriteLine("Failed to create the depth buffer from the description given.");
+		logger->GetInstance().WriteLine("Failed to create the depth buffer from the description given.");
 		// Stop!
 		return false;
 	}
@@ -714,7 +743,7 @@ bool CD3D11::CreateDepthStencilView(D3D11_DEPTH_STENCIL_VIEW_DESC& depthStencilV
 	if (FAILED(result))
 	{
 		// Log the error message.
-		gLogger->WriteLine("Failed to create the depth stencil view.");
+		logger->GetInstance().WriteLine("Failed to create the depth stencil view.");
 		// Stop!
 		return false;
 	}
@@ -759,7 +788,7 @@ bool CD3D11::CreateDepthStencilBuffer(D3D11_DEPTH_STENCIL_DESC& depthStencilBuff
 	if (FAILED(result))
 	{
 		// Log the error message.
-		gLogger->WriteLine("Failed to create the depth stencil buffer from the descriptor provided.");
+		logger->GetInstance().WriteLine("Failed to create the depth stencil buffer from the descriptor provided.");
 		// Stop!
 		return false;
 	}
@@ -795,7 +824,7 @@ bool CD3D11::CreateDepthDisabledStencilState(D3D11_DEPTH_STENCIL_DESC& depthSten
 	if (FAILED(result))
 	{
 		// Log the error message.
-		gLogger->WriteLine("Failed to create the depth stencil buffer from the descriptor provided.");
+		logger->GetInstance().WriteLine("Failed to create the depth stencil buffer from the descriptor provided.");
 		// Stop!
 		return false;
 	}
@@ -815,7 +844,6 @@ bool CD3D11::InitRasterizer(D3D11_RASTERIZER_DESC& rasterDesc)
 	rasterDesc.DepthBiasClamp = 0.0f;
 	rasterDesc.DepthClipEnable = true;
 	rasterDesc.FillMode = D3D11_FILL_SOLID;
-	//rasterDesc.FillMode = D3D11_FILL_WIREFRAME;
 	rasterDesc.FrontCounterClockwise = false;
 	rasterDesc.MultisampleEnable = false;
 	rasterDesc.ScissorEnable = false;
@@ -827,7 +855,7 @@ bool CD3D11::InitRasterizer(D3D11_RASTERIZER_DESC& rasterDesc)
 	if (FAILED(result))
 	{
 		// Log the error message
-		gLogger->WriteLine("Failed to create the rasterizer from the description provided.");
+		logger->GetInstance().WriteLine("Failed to create the rasterizer from the description provided.");
 		// Stop!
 		return false;
 	}
@@ -874,9 +902,19 @@ bool CD3D11::ToggleFullscreen(bool fullscreenEnabled)
 
 	if (FAILED(result))
 	{
-		gLogger->WriteLine("Failed to swap to fullscreen using the swapchain in D3D11.cpp.");
+		logger->GetInstance().WriteLine("Failed to swap to fullscreen using the swapchain in D3D11.cpp.");
 		return false;
 	}
 
 	return true;
+}
+
+void CD3D11::TurnOnBackFaceCulling()
+{
+	mpDeviceContext->RSSetState(mpRasterizerState);
+}
+
+void CD3D11::TurnOffBackFaceCulling()
+{
+	mpDeviceContext->RSSetState(mpRasterStateNoCulling);
 }

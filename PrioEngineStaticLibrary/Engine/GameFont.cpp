@@ -13,7 +13,7 @@ CGameFont::~CGameFont()
 {
 }
 
-bool CGameFont::Initialise(ID3D11Device * device, char * fontDataFile, WCHAR * fontTexture)
+bool CGameFont::Initialise(ID3D11Device * device, char * fontDataFile, std::string fontTexture)
 {
 	bool result = false; 
 
@@ -24,7 +24,7 @@ bool CGameFont::Initialise(ID3D11Device * device, char * fontDataFile, WCHAR * f
 	if (!result)
 	{
 		// Output a message informing the user to the log.
-		gLogger->WriteLine("Failed to load the font data file.");
+		logger->GetInstance().WriteLine("Failed to load the font data file.");
 		// Tell whatever called this that we failed.
 		return false;
 	}
@@ -36,7 +36,7 @@ bool CGameFont::Initialise(ID3D11Device * device, char * fontDataFile, WCHAR * f
 	if (!result)
 	{
 		// Output a message informing the user to the log.
-		gLogger->WriteLine("Failed to load the texture for a font.");
+		logger->GetInstance().WriteLine("Failed to load the texture for a font.");
 		// Tell whatever called this that we failed.
 		return false;
 	}
@@ -129,20 +129,20 @@ bool CGameFont::LoadFontData(char * dataFile)
 
 	if (!inFile.is_open())
 	{
-		gLogger->WriteLine("Could not open the input file in GameFont.cpp.");
+		logger->GetInstance().WriteLine("Could not open the input file in GameFont.cpp.");
 		return false;
 	}
 
 	// Allocate memory to our temp array for the font.
 	mpFont = new FontType[95];
 	// Write allocation message to memory log.
-	gLogger->MemoryAllocWriteLine(typeid(mpFont).name());
+	logger->GetInstance().MemoryAllocWriteLine(typeid(mpFont).name());
 	
 	// Check if we initalised our dynamic array for the font.
 	if (!mpFont)
 	{
 		// Write the failure message to the log.
-		gLogger->WriteLine("Failed to allocate memory to the mpFont array in GameFont.cpp.");
+		logger->GetInstance().WriteLine("Failed to allocate memory to the mpFont array in GameFont.cpp.");
 		// Tell whatever called this we failed.
 		return false;
 	}
@@ -181,13 +181,13 @@ void CGameFont::ReleaseFontData()
 		// Deallocate the memory.
 		delete[] mpFont;
 		// Write to memory log.
-		gLogger->MemoryDeallocWriteLine(typeid(mpFont).name());
+		logger->GetInstance().MemoryDeallocWriteLine(typeid(mpFont).name());
 		// Set the font to be nullptr so it can't be used again.
 		mpFont = nullptr;
 	}
 }
 
-bool CGameFont::LoadTextureFile(ID3D11Device * device, WCHAR * fontTexture)
+bool CGameFont::LoadTextureFile(ID3D11Device * device, std::string fontTexture)
 {
 	bool result = false;
 
@@ -198,12 +198,12 @@ bool CGameFont::LoadTextureFile(ID3D11Device * device, WCHAR * fontTexture)
 	if (!mpTexture)
 	{
 		// Write the failure message to the log.
-		gLogger->WriteLine("Failed to allocate memory to mpTexture in GameFont.cpp.");
+		logger->GetInstance().WriteLine("Failed to allocate memory to mpTexture in GameFont.cpp.");
 		// Tell whatever called this that it failed.
 		return false;
 	}
 	// Write the memory allocation message to the memory log.
-	gLogger->MemoryAllocWriteLine(typeid(mpTexture).name());
+	logger->GetInstance().MemoryAllocWriteLine(typeid(mpTexture).name());
 	
 	// Intialise the texture which we allocated memory too.
 	result = mpTexture->Initialise(device, fontTexture);
@@ -212,7 +212,7 @@ bool CGameFont::LoadTextureFile(ID3D11Device * device, WCHAR * fontTexture)
 	if (!result)
 	{
 		// Output error message to the logger.
-		gLogger->WriteLine("Failed to intialise mpTexture in GameFont.cpp.");
+		logger->GetInstance().WriteLine("Failed to intialise mpTexture in GameFont.cpp.");
 		// Tell whatever called this we failed.
 		return false;
 	}
@@ -231,7 +231,7 @@ void CGameFont::ReleaseTexture()
 		// Deallocate memory from the texture object.
 		delete mpTexture;
 		// Write deallocation message to the memory log.
-		gLogger->MemoryDeallocWriteLine(typeid(mpTexture).name());
+		logger->GetInstance().MemoryDeallocWriteLine(typeid(mpTexture).name());
 		// Set to nullptr so it can't be used.
 		mpTexture = nullptr;
 	}

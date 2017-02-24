@@ -160,6 +160,7 @@ c:\program files (x86)\microsoft directx sdk (june 2010)\include\d3d10.h(609): w
   Logger.cpp
 Engine\Logger.cpp(198): warning C4305: 'argument': truncation from 'int' to 'char'
 Engine\Logger.cpp(198): warning C4309: 'argument': truncation of constant value
+  Main.cpp
   Mesh.cpp
   Model.cpp
   ModelControl.cpp
@@ -211,8 +212,10 @@ c:\program files (x86)\microsoft directx sdk (june 2010)\include\d3d10.h(608): w
   C:\Program Files (x86)\Windows Kits\8.1\Include\shared\winerror.h(50445): note: see previous definition of 'D3D10_ERROR_TOO_MANY_UNIQUE_STATE_OBJECTS'
 c:\program files (x86)\microsoft directx sdk (june 2010)\include\d3d10.h(609): warning C4005: 'D3D10_ERROR_FILE_NOT_FOUND': macro redefinition
   C:\Program Files (x86)\Windows Kits\8.1\Include\shared\winerror.h(50454): note: see previous definition of 'D3D10_ERROR_FILE_NOT_FOUND'
-  Primitive.cpp
   Compiling...
+  Primitive.cpp
+  SkyBox.cpp
+  SkyboxShader.cpp
   SpecularLightingShader.cpp
   Terrain.cpp
   TerrainShader.cpp
@@ -220,6 +223,7 @@ c:\program files (x86)\microsoft directx sdk (june 2010)\include\d3d10.h(609): w
   TextureShader.cpp
   Triangle.cpp
   VertexTypeManager.cpp
-Engine\VertexTypeManager.cpp(536): warning C4800: 'HRESULT': forcing value to bool 'true' or 'false' (performance warning)
 assimp_release.lib(assimp-vc140-mt.dll) : warning LNK4006: __NULL_IMPORT_DESCRIPTOR already defined in AntTweakBar.lib(AntTweakBar.dll); second definition ignored
+Mesh.obj : warning LNK4006: "public: enum aiReturn __thiscall aiMaterial::GetTexture(enum aiTextureType,unsigned int,struct aiString *,enum aiTextureMapping *,unsigned int *,float *,enum aiTextureOp *,enum aiTextureMapMode *)const " (?GetTexture@aiMaterial@@QBE?AW4aiReturn@@W4aiTextureType@@IPAUaiString@@PAW4aiTextureMapping@@PAIPAMPAW4aiTextureOp@@PAW4aiTextureMapMode@@@Z) already defined in assimp_release.lib(assimp-vc140-mt.dll); second definition ignored
+Mesh.obj : warning LNK4006: "public: struct aiScene const * __thiscall Assimp::Importer::ReadFile(class std::basic_string<char,struct std::char_traits<char>,class std::allocator<char> > const &,unsigned int)" (?ReadFile@Importer@Assimp@@QAEPBUaiScene@@ABV?$basic_string@DU?$char_traits@D@std@@V?$allocator@D@2@@std@@I@Z) already defined in assimp_release.lib(assimp-vc140-mt.dll); second definition ignored
   PrioEngineStaticLibrary.vcxproj -> C:\Users\Sam\Source\Repos\PrioEngineStaticLibrary\Release\PrioEngineStaticLibrary.lib

@@ -3,7 +3,7 @@
 CTerrain::CTerrain(ID3D11Device* device)
 {
 	// Output alloc message to memory log.
-	gLogger->MemoryAllocWriteLine(typeid(this).name());
+	logger->GetInstance().MemoryAllocWriteLine(typeid(this).name());
 
 	// Initialise pointers to nullptr.
 	mpVertexBuffer = nullptr;
@@ -23,26 +23,53 @@ CTerrain::CTerrain(ID3D11Device* device)
 	mpTextures = new CTexture*[kmNumberOfTextures];
 	// Dirt
 	mpTextures[0] = new CTexture();
-	mpTextures[0]->Initialise(device, L"Resources/Textures/Dirt.dds");
-	// Rock
-	mpTextures[1] = new CTexture();
-	mpTextures[1]->Initialise(device, L"Resources/Textures/Snow.dds");
-	// Yellow grass.
-	mpTextures[2] = new CTexture();
-	mpTextures[2]->Initialise(device, L"Resources/Textures/YellowGrass.dds");
+	mpTextures[0]->Initialise(device, "Resources/Textures/Dirt.dds");
 	// Sand.
-	mpTextures[3] = new CTexture();
-	mpTextures[3]->Initialise(device, L"Resources/Textures/Sand.dds");
-	// Rock.
-	mpTextures[4] = new CTexture();
-	mpTextures[4]->Initialise(device, L"Resources/Textures/Rock.dds");
+	mpTextures[1] = new CTexture();
+	mpTextures[1]->Initialise(device, "Resources/Textures/Sand.dds");
+
+
+	///////////////////////
+	// Grass textures
+	//////////////////////
+
+	mpGrassTextures = new CTexture*[kNumberOfGrassTextures];
+
+	mpGrassTextures[0] = new CTexture();
+	if (!mpGrassTextures[0]->Initialise(device, "Resources/Textures/BrightGrass.dds"))
+	{
+		logger->GetInstance().WriteLine("Failed to load 'Resources/Textures/BrightGrass.dds'.");
+	}
+
+	mpGrassTextures[1] = new CTexture();
+	if (!mpGrassTextures[1]->Initialise(device, "Resources/Textures/DarkGrass.dds"))
+	{
+		logger->GetInstance().WriteLine("Failed to load 'Resources/Textures/DarkGrass.dds'.");
+	}
+
+	/////////////////////////
+	// Rock textures
+	////////////////////////
+	mpRockTextures = new CTexture*[kNumberOfRockTextures];
+
+	mpRockTextures[0] = new CTexture();
+	if (!mpRockTextures[0]->Initialise(device, "Resources/Textures/Stone.dds"))
+	{
+		logger->GetInstance().WriteLine("Failed to load 'Resources/Textures/Stone.dds'.");
+	}
+
+	mpRockTextures[1] = new CTexture();
+	if (!mpRockTextures[1]->Initialise(device, "Resources/Textures/LightRock.dds"))
+	{
+		logger->GetInstance().WriteLine("Failed to load 'Resources/Textures/LightRock.dds'.");
+	}
 }
 
 
 CTerrain::~CTerrain()
 {
 	// Output dealloc message to memory log.
-	gLogger->MemoryDeallocWriteLine(typeid(this).name());
+	logger->GetInstance().MemoryDeallocWriteLine(typeid(this).name());
 
 	for (unsigned int i = 0; i < kmNumberOfTextures; i++)
 	{
@@ -51,6 +78,22 @@ CTerrain::~CTerrain()
 	}
 
 	delete[] mpTextures;
+
+	for (unsigned int i = 0; i < kNumberOfGrassTextures; i++)
+	{
+		mpGrassTextures[i]->Shutdown();
+		delete mpGrassTextures[i];
+	}
+
+	delete[] mpGrassTextures;
+
+	for (unsigned int i = 0; i < kNumberOfRockTextures; i++)
+	{
+		mpRockTextures[i]->Shutdown();
+		delete mpRockTextures[i];
+	}
+
+	delete[] mpRockTextures;
 	
 	ReleaseHeightMap();
 
@@ -63,12 +106,12 @@ void CTerrain::ReleaseHeightMap()
 	{
 		for (int i = 0; i < mHeight; ++i) {
 			delete[] mpHeightMap[i];
-			gLogger->MemoryDeallocWriteLine(typeid(mpHeightMap[i]).name());
+			logger->GetInstance().MemoryDeallocWriteLine(typeid(mpHeightMap[i]).name());
 			mpHeightMap[i] = nullptr;
 		}
 		delete[] mpHeightMap;
 		mpHeightMap = nullptr;
-		gLogger->MemoryDeallocWriteLine(typeid(mpHeightMap).name());
+		logger->GetInstance().MemoryDeallocWriteLine(typeid(mpHeightMap).name());
 	}
 }
 
@@ -94,7 +137,7 @@ bool CTerrain::CreateTerrain(ID3D11Device* device)
 	if (!result)
 	{
 		// Output error to log.
-		gLogger->WriteLine("Failed to initialise buffers in Terrain.cpp.");
+		logger->GetInstance().WriteLine("Failed to initialise buffers in Terrain.cpp.");
 		return false;
 	}
 
@@ -111,6 +154,26 @@ void CTerrain::Render(ID3D11DeviceContext * context)
 CTexture** CTerrain::GetTexturesArray()
 {
 	return mpTextures;
+}
+
+CTexture** CTerrain::GetGrassTextureArray()
+{
+	return mpGrassTextures;
+}
+
+CTexture ** CTerrain::GetRockTextureArray()
+{
+	return mpRockTextures;
+}
+
+unsigned int CTerrain::GetNumberOfGrassTextures()
+{
+	return kNumberOfGrassTextures;
+}
+
+unsigned int CTerrain::GetNumberOfRockTextures()
+{
+	return kNumberOfRockTextures;
 }
 
 /* This function is designed to create vertex and index buffers according to a heightmap that has already been set.
@@ -142,12 +205,12 @@ bool CTerrain::InitialiseBuffers(ID3D11Device * device)
 	// Create the vertex array.
 	vertices = new VertexType[mVertexCount];
 	// Output the allocation message to the log.
-	gLogger->MemoryAllocWriteLine(typeid(vertices).name());
+	logger->GetInstance().MemoryAllocWriteLine(typeid(vertices).name());
 	// If we failed to allocate memory to the vertices array.
 	if (!vertices)
 	{
 		// Output error message to the debug log.
-		gLogger->WriteLine("Failed to create the vertex array in InitialiseBuffers function, Terrain.cpp.");
+		logger->GetInstance().WriteLine("Failed to create the vertex array in InitialiseBuffers function, Terrain.cpp.");
 		// Don't continue any more.
 		return false;
 	}
@@ -155,12 +218,12 @@ bool CTerrain::InitialiseBuffers(ID3D11Device * device)
 	// Create the index array.
 	indices = new unsigned long[mIndexCount];
 	// Output allocation message to the debug log.
-	gLogger->MemoryAllocWriteLine(typeid(indices).name());
+	logger->GetInstance().MemoryAllocWriteLine(typeid(indices).name());
 	// If we failed to allocate memory to the indices array.
 	if (!indices)
 	{
 		// Output failure message to the debug log.
-		gLogger->WriteLine("Failed to create the index array in InitialiseBuffers function, Terrain.cpp.");
+		logger->GetInstance().WriteLine("Failed to create the index array in InitialiseBuffers function, Terrain.cpp.");
 		// Don't continue any further.
 		return false;
 	}
@@ -168,6 +231,14 @@ bool CTerrain::InitialiseBuffers(ID3D11Device * device)
 	// Reset the index and vertex we're starting from to 0.
 	index = 0;
 	vertex = 0;
+
+	// Define the position in world space which we should decide on the terrain type.
+	const float changeInHeight = mHighestPoint - mLowestPoint;
+	float onePerc = changeInHeight / 100.0f;
+	mSnowHeight = mLowestPoint + (onePerc * 60);	// 60% and upwards will be snow.
+	mGrassHeight = mLowestPoint + (onePerc * 30);	// 30% and upwards will be grass.
+	mSandHeight = mLowestPoint + (onePerc * 10);	// 10% and upwards will be sand.
+	mDirtHeight = mLowestPoint + (onePerc * 15);	// 15% and upwards will be dirt.
 
 	/// Plot the vertices of the grid.
 	float U = 0.0f;
@@ -194,15 +265,18 @@ bool CTerrain::InitialiseBuffers(ID3D11Device * device)
 				// Set the position to a default of 0.0f.
 				vertices[vertex].position = D3DXVECTOR3{ posX, 0.0f, posZ };
 			}
+			CTerrain::VertexAreaType areaType = FindAreaType(vertices[vertex].position.y);
+
+			if (areaType == CTerrain::VertexAreaType::Grass)
+			{
+				CreateTree(vertices[vertex].position);
+				CreatePlant(vertices[vertex].position);
+			}
 
 			U = static_cast<float>(widthCount);
 			V = static_cast<float>(heightCount);
 
 			vertices[vertex].UV = { U, V };
-			//vertices[vertex].sandUV = { U, V };
-			// Set the default colour.
-			//vertices[vertex].colour = D3DXVECTOR4{ 1.0f, 1.0f, 1.0f, 1.0f };
-
 			// Onto the next vertex.
 			vertex++;
 		}
@@ -370,7 +444,7 @@ bool CTerrain::InitialiseBuffers(ID3D11Device * device)
 	result = device->CreateBuffer(&vertexBufferDesc, &vertexData, &mpVertexBuffer);
 	if (FAILED(result))
 	{
-		gLogger->WriteLine("Failed to create the vertex buffer from the buffer description.");
+		logger->GetInstance().WriteLine("Failed to create the vertex buffer from the buffer description.");
 		return false;
 	}
 
@@ -391,17 +465,17 @@ bool CTerrain::InitialiseBuffers(ID3D11Device * device)
 	result = device->CreateBuffer(&indexBufferDesc, &indexData, &mpIndexBuffer);
 	if (FAILED(result))
 	{
-		gLogger->WriteLine("Failed to create the index buffer from the buffer description.");
+		logger->GetInstance().WriteLine("Failed to create the index buffer from the buffer description.");
 		return false;
 	}
 
 	// Clean up the memory allocated to arrays.
 	delete[] vertices;
-	gLogger->MemoryDeallocWriteLine(typeid(vertices).name());
+	logger->GetInstance().MemoryDeallocWriteLine(typeid(vertices).name());
 	vertices = nullptr;
 
 	delete[] indices;
-	gLogger->MemoryDeallocWriteLine(typeid(indices).name());
+	logger->GetInstance().MemoryDeallocWriteLine(typeid(indices).name());
 	indices = nullptr;
 
 	return true;
@@ -492,7 +566,7 @@ void CTerrain::LoadHeightMap(double ** heightMap)
 	mHighestPoint = static_cast<float>(mpHeightMap[0][0]);
 	
 	// Outpout a log to let the user know where we're up to in the function.
-	gLogger->WriteLine("Copied height map over to terrain, time to find the heights and lowest points.");
+	logger->GetInstance().WriteLine("Copied height map over to terrain, time to find the heights and lowest points.");
 	
 	// Iterate through the height.
 	for (int y = 0; y < mHeight; y++)
@@ -541,7 +615,7 @@ bool CTerrain::LoadHeightMapFromFile(std::string filename)
 	// Check we successfully opened.
 	if (!inFile.is_open())
 	{
-		gLogger->WriteLine("Failed to open the map file with name: " + filename);
+		logger->GetInstance().WriteLine("Failed to open the map file with name: " + filename);
 		return false;
 	}
 
@@ -576,7 +650,7 @@ bool CTerrain::LoadHeightMapFromFile(std::string filename)
 
 	if (!inFile.is_open())
 	{
-		gLogger->WriteLine("Failed to open " + filename + ", but managed to open it the first time.");
+		logger->GetInstance().WriteLine("Failed to open " + filename + ", but managed to open it the first time.");
 		return false;
 	}
 
@@ -687,4 +761,99 @@ void CTerrain::UpdateMatrices(D3DXMATRIX & world)
 	D3DXMatrixRotationZ(&rotZ, GetRotationZ());
 	world = modelWorld * rotX * rotY * rotZ;
 
+}
+
+bool CTerrain::PositionTreeHere()
+{
+	// Generate a random number from 0 - 100
+	int randomNum = rand() % 1000;
+
+	// Give a 99.7% chance to generate a tree.
+	if (randomNum >= 997.0f)
+	{
+		return true;
+	}
+	
+	return false;
+}
+
+bool CTerrain::CreateTree(D3DXVECTOR3 position)
+{
+	if (PositionTreeHere())
+	{
+		position.y += GetPosY();
+		position.x += GetPosX();
+		TerrainEntityType tree;
+		tree.position = position;
+
+		float rotation = static_cast<float>(rand() % 100 + 261);
+		tree.rotation = rotation;
+
+		float scale = static_cast<float>(rand() % 50 + 1) / static_cast<float>(rand() % 100 + 1);
+		tree.scale = scale;
+
+		mTreesInfo.push_back(tree);
+
+		return true;
+	}
+	return false;
+}
+
+bool CTerrain::PositionPlantHere()
+{
+	// Generate a random number from 0 - 100
+	int randomNum = rand() % 1000;
+
+	// Give a 99.6% chance to generate a plant.
+	if (randomNum >= 996.0f)
+	{
+		return true;
+	}
+
+	return false;
+}
+
+bool CTerrain::CreatePlant(D3DXVECTOR3 position)
+{
+	if (PositionTreeHere())
+	{
+		position.y += GetPosY();
+		position.x += GetPosX();
+		TerrainEntityType plant;
+		plant.position = position;
+
+		float rotation = static_cast<float>(rand() % 100 + 261);
+		plant.rotation = rotation;
+
+		float scale = static_cast<float>(rand() % 50 + 1) / static_cast<float>(rand() % 100 + 1);
+		plant.scale = scale;
+
+		mPlantsInfo.push_back(plant);
+		return true;
+	}
+	return false;
+}
+
+CTerrain::VertexAreaType CTerrain::FindAreaType(float height)
+{
+	CTerrain::VertexAreaType area = CTerrain::Sand;
+
+	if (height > mSnowHeight)
+	{
+		area = CTerrain::VertexAreaType::Snow;
+	}
+	else if (height > mGrassHeight)
+	{
+		area = CTerrain::VertexAreaType::Grass;
+	}
+	else if (height > mDirtHeight)
+	{
+		area = CTerrain::VertexAreaType::Dirt;
+	}
+	else
+	{
+		area = CTerrain::VertexAreaType::Sand;
+	}
+
+	return area;
 }

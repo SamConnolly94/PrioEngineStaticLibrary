@@ -1,6 +1,6 @@
 #include "Cube.h"
 
-CCube::CCube(WCHAR * filename)
+CCube::CCube(std::string filename)
 {
 	// Initialise all variables to be null.
 	mpVertexBuffer = nullptr;
@@ -16,16 +16,15 @@ CCube::CCube(WCHAR * filename)
 	mShape = PrioEngine::Primitives::cube;
 
 	mpVertexManager = new CVertexManager(PrioEngine::ShaderType::Texture, PrioEngine::Primitives::cube);
-	gLogger->MemoryAllocWriteLine(typeid(mpVertexManager).name());
+	logger->GetInstance().MemoryAllocWriteLine(typeid(mpVertexManager).name());
 }
 
-CCube::CCube(WCHAR* filename, bool useLighting)
+CCube::CCube(std::string filename, bool useLighting)
 {
 	// Initialise all variables to be null.
 	mpVertexBuffer = nullptr;
 	mpIndexBuffer = nullptr;
 	mpTexture = nullptr;
-	mpTextureFilename = nullptr;
 	ResetColour();
 
 	// Set the flag to use diffuse lighting on our texture.
@@ -39,12 +38,12 @@ CCube::CCube(WCHAR* filename, bool useLighting)
 	if (useLighting)
 	{
 		mpVertexManager = new CVertexManager(PrioEngine::ShaderType::Diffuse, PrioEngine::Primitives::cube);
-		gLogger->MemoryAllocWriteLine(typeid(mpVertexManager).name());
+		logger->GetInstance().MemoryAllocWriteLine(typeid(mpVertexManager).name());
 	}
 	else
 	{
 		mpVertexManager = new CVertexManager(PrioEngine::ShaderType::Texture, PrioEngine::Primitives::cube);
-		gLogger->MemoryAllocWriteLine(typeid(mpVertexManager).name());
+		logger->GetInstance().MemoryAllocWriteLine(typeid(mpVertexManager).name());
 	}
 }
 
@@ -63,7 +62,7 @@ CCube::CCube(PrioEngine::RGBA colour)
 	mShape = PrioEngine::Primitives::cube;
 
 	mpVertexManager = new CVertexManager(PrioEngine::ShaderType::Colour, PrioEngine::Primitives::cube);
-	gLogger->MemoryAllocWriteLine(typeid(mpVertexManager).name());
+	logger->GetInstance().MemoryAllocWriteLine(typeid(mpVertexManager).name());
 
 	mpVertexManager->SetColour(colour);
 }
@@ -77,7 +76,7 @@ bool CCube::Initialise(ID3D11Device * device)
 	mpDevice = device;
 	mpVertexManager->SetDevicePtr(device);
 	bool result;
-	mApplyTexture = mpTextureFilename != nullptr;
+	mApplyTexture = mpTextureFilename != "";
 
 	// Initialise the vertex and index buffer that hold geometry for the triangle.
 	result = InitialiseBuffers(device);
@@ -122,7 +121,7 @@ bool CCube::InitialiseBuffers(ID3D11Device * device)
 
 	// Create the index array.
 	indices = new unsigned long[mIndexCount];
-	gLogger->MemoryAllocWriteLine(typeid(indices).name());
+	logger->GetInstance().MemoryAllocWriteLine(typeid(indices).name());
 	if (!indices)
 	{
 		return false;
@@ -164,7 +163,7 @@ bool CCube::InitialiseBuffers(ID3D11Device * device)
 
 	delete[] indices;
 	indices = nullptr;
-	gLogger->MemoryDeallocWriteLine(typeid(indices).name());
+	logger->GetInstance().MemoryDeallocWriteLine(typeid(indices).name());
 
 	return true;
 }

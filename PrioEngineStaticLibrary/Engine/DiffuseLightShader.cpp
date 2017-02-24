@@ -20,7 +20,7 @@ bool CDiffuseLightShader::Initialise(ID3D11Device * device, HWND hwnd)
 	bool result;
 
 	// Initialise the vertex pixel shaders.
-	result = InitialiseShader(device, hwnd, L"Shaders/DiffuseLight.vs.hlsl", L"Shaders/DiffuseLight.ps.hlsl");
+	result = InitialiseShader(device, hwnd, "Shaders/DiffuseLight.vs.hlsl", "Shaders/DiffuseLight.ps.hlsl");
 
 	if (!result)
 	{
@@ -37,12 +37,12 @@ void CDiffuseLightShader::Shutdown()
 }
 
 bool CDiffuseLightShader::Render(ID3D11DeviceContext* deviceContext, int indexCount, D3DXMATRIX worldMatrix, D3DXMATRIX viewMatrix,
-	D3DXMATRIX projMatrix, ID3D11ShaderResourceView* texture, D3DXVECTOR3 lightDirection, D3DXVECTOR4 diffuseColour, D3DXVECTOR4 ambientColour)
+	D3DXMATRIX projMatrix, ID3D11ShaderResourceView** textures, int numberOfTextures, D3DXVECTOR3 lightDirection, D3DXVECTOR4 diffuseColour, D3DXVECTOR4 ambientColour)
 {
 	bool result;
 
 	// Set the shader parameters that it will use for rendering.
-	result = SetShaderParameters(deviceContext, worldMatrix, viewMatrix, projMatrix, texture, lightDirection, diffuseColour, ambientColour);
+	result = SetShaderParameters(deviceContext, worldMatrix, viewMatrix, projMatrix, textures, numberOfTextures, lightDirection, diffuseColour, ambientColour);
 	if (!result)
 	{
 		return false;
@@ -54,7 +54,7 @@ bool CDiffuseLightShader::Render(ID3D11DeviceContext* deviceContext, int indexCo
 	return true;
 }
 
-bool CDiffuseLightShader::InitialiseShader(ID3D11Device * device, HWND hwnd, WCHAR * vsFilename, WCHAR * psFilename)
+bool CDiffuseLightShader::InitialiseShader(ID3D11Device * device, HWND hwnd, std::string vsFilename, std::string psFilename)
 {
 	HRESULT result;
 	ID3D10Blob* errorMessage;
@@ -65,13 +65,7 @@ bool CDiffuseLightShader::InitialiseShader(ID3D11Device * device, HWND hwnd, WCH
 	D3D11_BUFFER_DESC matrixBufferDesc;
 	D3D11_SAMPLER_DESC samplerDesc;
 	D3D11_BUFFER_DESC lightBufferDesc;
-
-	// Convert the vs & ps filename to string for logging purposes.
-	std::wstring wsVs(vsFilename);
-	std::string vsFilenameStr(wsVs.begin(), wsVs.end());
-
-	std::wstring wsPs(psFilename);
-	std::string psFilenameStr(wsPs.begin(), wsPs.end());
+	D3D11_BUFFER_DESC mapBufferDesc;
 
 	// Initialise pointers in this function to null.
 	errorMessage = nullptr;
@@ -79,7 +73,7 @@ bool CDiffuseLightShader::InitialiseShader(ID3D11Device * device, HWND hwnd, WCH
 	pixelShaderBuffer = nullptr;
 
 	// Compile the vertex shader code.
-	result = D3DX11CompileFromFile(vsFilename, NULL, NULL, "LightVertexShader", "vs_5_0", D3D10_SHADER_ENABLE_STRICTNESS, 0, NULL, &vertexShaderBuffer, &errorMessage, NULL);
+	result = D3DX11CompileFromFile(vsFilename.c_str(), NULL, NULL, "LightVertexShader", "vs_5_0", D3D10_SHADER_ENABLE_STRICTNESS, 0, NULL, &vertexShaderBuffer, &errorMessage, NULL);
 	if (FAILED(result))
 	{
 		if (errorMessage)
@@ -88,15 +82,16 @@ bool CDiffuseLightShader::InitialiseShader(ID3D11Device * device, HWND hwnd, WCH
 		}
 		else
 		{
-			gLogger->WriteLine("Could not find a shader file with name '" + vsFilenameStr + "'");
-			MessageBox(hwnd, vsFilename, L"Missing shader file. ", MB_OK);
+			std::string errMsg = "Missing shader file. ";
+			logger->GetInstance().WriteLine("Could not find a shader file with name '" + vsFilename + "'");
+			MessageBox(hwnd, vsFilename.c_str(), errMsg.c_str(), MB_OK);
 		}
-		gLogger->WriteLine("Failed to compile the vertex shader named '" + vsFilenameStr + "'");
+		logger->GetInstance().WriteLine("Failed to compile the vertex shader named '" + vsFilename + "'");
 		return false;
 	}
 
 	// Compile the pixel shader code.
-	result = D3DX11CompileFromFile(psFilename, NULL, NULL, "LightPixelShader", "ps_5_0", D3D10_SHADER_ENABLE_STRICTNESS, 0, NULL, &pixelShaderBuffer, &errorMessage, NULL);
+	result = D3DX11CompileFromFile(psFilename.c_str(), NULL, NULL, "LightPixelShader", "ps_5_0", D3D10_SHADER_ENABLE_STRICTNESS, 0, NULL, &pixelShaderBuffer, &errorMessage, NULL);
 	if (FAILED(result))
 	{
 		if (errorMessage)
@@ -105,10 +100,11 @@ bool CDiffuseLightShader::InitialiseShader(ID3D11Device * device, HWND hwnd, WCH
 		}
 		else
 		{
-			gLogger->WriteLine("Could not find a shader file with name '" + psFilenameStr + "'");
-			MessageBox(hwnd, psFilename, L"Missing shader file.", MB_OK);
+			std::string errMsg = "Missing shader file.";
+			logger->GetInstance().WriteLine("Could not find a shader file with name '" + psFilename + "'");
+			MessageBox(hwnd, psFilename.c_str(), errMsg.c_str(), MB_OK);
 		}
-		gLogger->WriteLine("Failed to compile the pixel shader named '" + psFilenameStr + "'");
+		logger->GetInstance().WriteLine("Failed to compile the pixel shader named '" + psFilename + "'");
 		return false;
 	}
 
@@ -116,7 +112,7 @@ bool CDiffuseLightShader::InitialiseShader(ID3D11Device * device, HWND hwnd, WCH
 	result = device->CreateVertexShader(vertexShaderBuffer->GetBufferPointer(), vertexShaderBuffer->GetBufferSize(), NULL, &mpVertexShader);
 	if (FAILED(result))
 	{
-		gLogger->WriteLine("Failed to create the vertex shader from the buffer.");
+		logger->GetInstance().WriteLine("Failed to create the vertex shader from the buffer.");
 		return false;
 	}
 
@@ -124,7 +120,7 @@ bool CDiffuseLightShader::InitialiseShader(ID3D11Device * device, HWND hwnd, WCH
 	result = device->CreatePixelShader(pixelShaderBuffer->GetBufferPointer(), pixelShaderBuffer->GetBufferSize(), NULL, &mpPixelShader);
 	if (FAILED(result))
 	{
-		gLogger->WriteLine("Failed to create the pixel shader from the buffer.");
+		logger->GetInstance().WriteLine("Failed to create the pixel shader from the buffer.");
 		return false;
 	}
 
@@ -165,7 +161,7 @@ bool CDiffuseLightShader::InitialiseShader(ID3D11Device * device, HWND hwnd, WCH
 	result = device->CreateInputLayout(polygonLayout, numElements, vertexShaderBuffer->GetBufferPointer(), vertexShaderBuffer->GetBufferSize(), &mpLayout);
 	if (FAILED(result))
 	{
-		gLogger->WriteLine("Failed to create polygon layout.");
+		logger->GetInstance().WriteLine("Failed to create polygon layout.");
 		return false;
 	}
 
@@ -196,7 +192,7 @@ bool CDiffuseLightShader::InitialiseShader(ID3D11Device * device, HWND hwnd, WCH
 
 	if (FAILED(result))
 	{
-		gLogger->WriteLine("Failed to create the sampler state in TextureShader.cpp");
+		logger->GetInstance().WriteLine("Failed to create the sampler state in TextureShader.cpp");
 		return false;
 	}
 
@@ -213,7 +209,7 @@ bool CDiffuseLightShader::InitialiseShader(ID3D11Device * device, HWND hwnd, WCH
 	result = device->CreateBuffer(&matrixBufferDesc, NULL, &mpMatrixBuffer);
 	if (FAILED(result))
 	{
-		gLogger->WriteLine("Failed to create the buffer pointer to access the vertex shader from within the texture shader class.");
+		logger->GetInstance().WriteLine("Failed to create the buffer pointer to access the vertex shader from within the texture shader class.");
 		return false;
 	}
 
@@ -227,7 +223,21 @@ bool CDiffuseLightShader::InitialiseShader(ID3D11Device * device, HWND hwnd, WCH
 	result = device->CreateBuffer(&lightBufferDesc, NULL, &mpLightBuffer);
 	if (FAILED(result))
 	{
-		gLogger->WriteLine("Failed to create the buffer from the light buffer descriptor from within the texture diffuse light shader class.");
+		logger->GetInstance().WriteLine("Failed to create the buffer from the light buffer descriptor from within the texture diffuse light shader class.");
+		return false;
+	}
+
+	mapBufferDesc.Usage = D3D11_USAGE_DYNAMIC;
+	mapBufferDesc.ByteWidth = sizeof(MapBufferType);
+	mapBufferDesc.BindFlags = D3D11_BIND_CONSTANT_BUFFER;
+	mapBufferDesc.CPUAccessFlags = D3D11_CPU_ACCESS_WRITE;
+	mapBufferDesc.MiscFlags = 0;
+	mapBufferDesc.StructureByteStride = 0;
+
+	result = device->CreateBuffer(&mapBufferDesc, NULL, &mpMapBuffer);
+	if (FAILED(result))
+	{
+		logger->GetInstance().WriteLine("Failed to create the buffer from the map buffer descriptor from within the texture diffuse light shader class.");
 		return false;
 	}
 
@@ -236,6 +246,12 @@ bool CDiffuseLightShader::InitialiseShader(ID3D11Device * device, HWND hwnd, WCH
 
 void CDiffuseLightShader::ShutdownShader()
 {
+	if (mpMapBuffer)
+	{
+		mpMapBuffer->Release();
+		mpMapBuffer = nullptr;
+	}
+
 	if (mpLightBuffer)
 	{
 		mpLightBuffer->Release();
@@ -273,7 +289,7 @@ void CDiffuseLightShader::ShutdownShader()
 	}
 }
 
-void CDiffuseLightShader::OutputShaderErrorMessage(ID3D10Blob *errorMessage, HWND hwnd, WCHAR * shaderFilename)
+void CDiffuseLightShader::OutputShaderErrorMessage(ID3D10Blob *errorMessage, HWND hwnd, std::string shaderFilename)
 {
 	std::string errMsg;
 	char* compileErrors;
@@ -295,17 +311,17 @@ void CDiffuseLightShader::OutputShaderErrorMessage(ID3D10Blob *errorMessage, HWN
 	}
 
 	// Write the error string to the logs.
-	gLogger->WriteLine(errMsg);
+	logger->GetInstance().WriteLine(errMsg);
 
 	// Clean up the BLOB file used to store the error message.
 	errorMessage->Release();
 	errorMessage = nullptr;
 
 	// Output a message box containing info describing what went wrong. Redirect to the logs.
-	MessageBox(hwnd, L"Error compiling the shader. Check the logs for a more detailed error message.", shaderFilename, MB_OK);
+	MessageBox(hwnd, "Error compiling the shader. Check the logs for a more detailed error message.", shaderFilename.c_str(), MB_OK);
 }
 
-bool CDiffuseLightShader::SetShaderParameters(ID3D11DeviceContext * deviceContext, D3DXMATRIX worldMatrix, D3DXMATRIX viewMatrix, D3DXMATRIX projMatrix, ID3D11ShaderResourceView * texture, D3DXVECTOR3 lightDirection, D3DXVECTOR4 diffuseColour, D3DXVECTOR4 ambientColour)
+bool CDiffuseLightShader::SetShaderParameters(ID3D11DeviceContext * deviceContext, D3DXMATRIX worldMatrix, D3DXMATRIX viewMatrix, D3DXMATRIX projMatrix, ID3D11ShaderResourceView** textures, int numberOfTextures, D3DXVECTOR3 lightDirection, D3DXVECTOR4 diffuseColour, D3DXVECTOR4 ambientColour)
 {
 	HRESULT result;
 	D3D11_MAPPED_SUBRESOURCE mappedResource;
@@ -344,7 +360,7 @@ bool CDiffuseLightShader::SetShaderParameters(ID3D11DeviceContext * deviceContex
 	deviceContext->VSSetConstantBuffers(bufferNumber, 1, &mpMatrixBuffer);
 
 	// Set shader texture resource in the pixel shader.
-	deviceContext->PSSetShaderResources(0, 1, &texture);
+	deviceContext->PSSetShaderResources(0, numberOfTextures, textures);
 
 	// Lock the light constant buffer so it can be written to.
 	result = deviceContext->Map(mpLightBuffer, 0, D3D11_MAP_WRITE_DISCARD, 0, &mappedResource);
@@ -370,6 +386,38 @@ bool CDiffuseLightShader::SetShaderParameters(ID3D11DeviceContext * deviceContex
 
 	// Finally set the light constant buffer in the pixel shader with the updated values.
 	deviceContext->PSSetConstantBuffers(bufferNumber, 1, &mpLightBuffer);
+
+	return true;
+}
+
+bool CDiffuseLightShader::UpdateMapBuffer(ID3D11DeviceContext* deviceContext, bool useAlphaMap, bool useSpecularMap)
+{
+	HRESULT result;
+	D3D11_MAPPED_SUBRESOURCE mappedResource;
+	unsigned int bufferNumber = 1;
+	MapBufferType* mapBufferPtr;
+
+	// Lock the constant buffer so it can be written to.
+	result = deviceContext->Map(mpMapBuffer, 0, D3D11_MAP_WRITE_DISCARD, 0, &mappedResource);
+	if (FAILED(result))
+	{
+		logger->GetInstance().WriteLine("Failed to lock the map buffer when attempting to update it.");
+		return false;
+	}
+
+	// Get a pointer to the data in the constant buffer.
+	mapBufferPtr = (MapBufferType*)mappedResource.pData;
+
+	// Copy the bools into the constant buffer.
+	mapBufferPtr->useAlphaMap = useAlphaMap;
+	mapBufferPtr->useSpecularMap = useSpecularMap;
+	mapBufferPtr->padding2 = D3DXVECTOR3{ 0.0F, 0.0F, 0.0f };
+
+	// Unlock the constant buffer.
+	deviceContext->Unmap(mpMapBuffer, 0);
+
+	// Now set the constant buffer in the vertex shader with the updated values.
+	deviceContext->PSSetConstantBuffers(bufferNumber, 1, &mpMapBuffer);
 
 	return true;
 }
