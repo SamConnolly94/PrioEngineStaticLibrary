@@ -5,7 +5,6 @@ CTerrainShader::CTerrainShader()
 	mpVertexShader = nullptr;
 	mpPixelShader = nullptr;
 	mpLayout = nullptr;
-	mpMatrixBuffer = nullptr;
 	mpSampleState = nullptr;
 	mpLightBuffer = nullptr;
 	mpPatchMap = new CTexture();
@@ -13,7 +12,6 @@ CTerrainShader::CTerrainShader()
 
 CTerrainShader::~CTerrainShader()
 {
-	mpPatchMap->Shutdown();
 	delete mpPatchMap;
 }
 
@@ -47,8 +45,7 @@ void CTerrainShader::Shutdown()
 	ShutdownShader();
 }
 
-bool CTerrainShader::Render(ID3D11DeviceContext* deviceContext, int indexCount, D3DXMATRIX worldMatrix, D3DXMATRIX viewMatrix,
-	D3DXMATRIX projMatrix, CTexture** texturesArray, unsigned int numberOfTextures, CTexture** grassTexturesArray, unsigned int numberOfGrassTextures,
+bool CTerrainShader::Render(ID3D11DeviceContext* deviceContext, int indexCount, CTexture** texturesArray, unsigned int numberOfTextures, CTexture** grassTexturesArray, unsigned int numberOfGrassTextures,
 	CTexture** rockTexturesArray, unsigned int numberOfRockTextures,
 	D3DXVECTOR3 lightDirection, D3DXVECTOR4 diffuseColour, D3DXVECTOR4 ambientColour, float highestPos, float lowestPos, D3DXVECTOR3 worldPosition,
 	float snowHeight, float grassHeight, float dirtHeight, float sandHeight)
@@ -56,7 +53,7 @@ bool CTerrainShader::Render(ID3D11DeviceContext* deviceContext, int indexCount, 
 	bool result;
 
 	// Set the shader parameters that it will use for rendering.
-	result = SetShaderParameters(deviceContext, worldMatrix, viewMatrix, projMatrix, texturesArray, 
+	result = SetShaderParameters(deviceContext, texturesArray, 
 		numberOfTextures, grassTexturesArray, numberOfGrassTextures, rockTexturesArray, numberOfRockTextures, lightDirection, 
 		diffuseColour, ambientColour, highestPos, lowestPos, worldPosition, snowHeight, grassHeight, dirtHeight, sandHeight);
 	if (!result)
@@ -79,7 +76,6 @@ bool CTerrainShader::InitialiseShader(ID3D11Device * device, HWND hwnd, std::str
 	const int kNumberOfPolygonElements = 3;
 	D3D11_INPUT_ELEMENT_DESC polygonLayout[kNumberOfPolygonElements];
 	unsigned int numElements;
-	D3D11_BUFFER_DESC matrixBufferDesc;
 	D3D11_SAMPLER_DESC samplerDesc;
 	D3D11_BUFFER_DESC lightBufferDesc;
 	D3D11_BUFFER_DESC positioningBufferDesc;
@@ -218,20 +214,9 @@ bool CTerrainShader::InitialiseShader(ID3D11Device * device, HWND hwnd, std::str
 		return false;
 	}
 
-	// Setup the description of the dynamic matrix constant buffer that is in the vertex shader.
-	matrixBufferDesc.Usage = D3D11_USAGE_DYNAMIC;
-	matrixBufferDesc.ByteWidth = sizeof(MatrixBufferType);
-	matrixBufferDesc.BindFlags = D3D11_BIND_CONSTANT_BUFFER;
-	matrixBufferDesc.CPUAccessFlags = D3D11_CPU_ACCESS_WRITE;
-	matrixBufferDesc.MiscFlags = 0;
-	matrixBufferDesc.StructureByteStride = 0;
-
-
-	// Create the constant buffer pointer so we can access the vertex shader constant buffer from within this class.
-	result = device->CreateBuffer(&matrixBufferDesc, NULL, &mpMatrixBuffer);
-	if (FAILED(result))
+	if (!SetupMatrixBuffer(device))
 	{
-		logger->GetInstance().WriteLine("Failed to create the buffer pointer to access the vertex shader from within the texture shader class.");
+		logger->GetInstance().WriteLine("Failed to set up matrix buffer in terrain shader class.");
 		return false;
 	}
 
@@ -288,6 +273,13 @@ bool CTerrainShader::InitialiseShader(ID3D11Device * device, HWND hwnd, std::str
 
 void CTerrainShader::ShutdownShader()
 {
+	if (mpPatchMap)
+	{
+		mpPatchMap->Shutdown();
+		delete mpPatchMap;
+		mpPatchMap = nullptr;
+	}
+
 	if (mpLightBuffer)
 	{
 		mpLightBuffer->Release();
@@ -310,12 +302,6 @@ void CTerrainShader::ShutdownShader()
 	{
 		mpSampleState->Release();
 		mpSampleState = nullptr;
-	}
-
-	if (mpMatrixBuffer)
-	{
-		mpMatrixBuffer->Release();
-		mpMatrixBuffer = nullptr;
 	}
 
 	if (mpLayout)
@@ -369,8 +355,7 @@ void CTerrainShader::OutputShaderErrorMessage(ID3D10Blob *errorMessage, HWND hwn
 	MessageBox(hwnd, "Error compiling the shader. Check the logs for a more detailed error message.", shaderFilename.c_str(), MB_OK);
 }
 
-bool CTerrainShader::SetShaderParameters(ID3D11DeviceContext* deviceContext, D3DXMATRIX worldMatrix, D3DXMATRIX viewMatrix,
-	D3DXMATRIX projMatrix, CTexture** textureArray, unsigned int numberOfTextures, CTexture** grassTexturesArray, unsigned int numberOfGrassTextures,
+bool CTerrainShader::SetShaderParameters(ID3D11DeviceContext* deviceContext, CTexture** textureArray, unsigned int numberOfTextures, CTexture** grassTexturesArray, unsigned int numberOfGrassTextures,
 	CTexture** rockTexturesArray, unsigned int numberOfRockTextures,
 	D3DXVECTOR3 lightDirection, D3DXVECTOR4 diffuseColour, D3DXVECTOR4 ambientColour,
 	float highestPos, float lowestPos, D3DXVECTOR3 worldPosition, float snowHeight, float grassHeight, float dirtHeight, float sandHeight)
@@ -403,36 +388,18 @@ bool CTerrainShader::SetShaderParameters(ID3D11DeviceContext* deviceContext, D3D
 	PositioningBufferType* positioningConstBuffPtr;
 	TerrainAreaBufferType* terrainAreaConstBuffPtr;
 
-	// Transpose the matrices to prepare them for the shader.
-	D3DXMatrixTranspose(&worldMatrix, &worldMatrix);
-	D3DXMatrixTranspose(&viewMatrix, &viewMatrix);
-	D3DXMatrixTranspose(&projMatrix, &projMatrix);
+	bufferNumber = 0;
 
-	// Lock the constant buffer so it can be written to.
-	result = deviceContext->Map(mpMatrixBuffer, 0, D3D11_MAP_WRITE_DISCARD, 0, &mappedResource);
-	if (FAILED(result))
+	if (!SetMatrixBuffer(deviceContext, bufferNumber, ShaderType::Vertex))
 	{
+		logger->GetInstance().WriteLine("Failed to set the matrix buffer in terrain shader.");
 		return false;
 	}
 
-	// Get a pointer to the data in the constant buffer.
-	dataPtr = (MatrixBufferType*)mappedResource.pData;
+	////////////////////////////
+	// Resources
+	//////////////////////////
 
-	// Copy the matrices into the constant buffer.
-	dataPtr->world = worldMatrix;
-	dataPtr->view = viewMatrix;
-	dataPtr->projection = projMatrix;
-
-	// Unlock the constant buffer.
-	deviceContext->Unmap(mpMatrixBuffer, 0);
-
-	// Set the position of the constant buffer in the vertex shader.
-	bufferNumber = 0;
-
-	// Now set the constant buffer in the vertex shader with the updated values.
-	deviceContext->VSSetConstantBuffers(bufferNumber, 1, &mpMatrixBuffer);
-
-	// Set shader texture resource in the pixel shader.
 	deviceContext->PSSetShaderResources(0, numberOfTextures, textures);
 	deviceContext->PSSetShaderResources(numberOfTextures, numberOfGrassTextures, grassTextures);
 	deviceContext->PSSetShaderResources(numberOfTextures + numberOfGrassTextures, 1, &patchMap);

@@ -398,8 +398,13 @@ bool CGameText::RenderSentence(ID3D11DeviceContext * deviceContext, SentenceType
 	// Create a pixel color vector with the input sentence color.
 	pixelColor = D3DXVECTOR4(sentence->red, sentence->green, sentence->blue, 1.0f);
 
+	mpFontShader->SetWorldMatrix(worldMatrix);
+	mpFontShader->SetViewMatrix(mBaseViewMatrix);
+	mpFontShader->SetProjMatrix(orthoMatrix);
+	mpFontShader->SetViewProjMatrix(mBaseViewMatrix * orthoMatrix);
+
 	// Render the text using the font shader.
-	result = mpFontShader->Render(deviceContext, sentence->indexCount, worldMatrix, mBaseViewMatrix, orthoMatrix, mpFont->GetTexture(),
+	result = mpFontShader->Render(deviceContext, sentence->indexCount, mpFont->GetTexture(),
 		pixelColor);
 	if (!result)
 	{

@@ -1,24 +1,73 @@
-d:\documents\visual studio 2015\projects\prioenginestaticlibrary\prioenginestaticlibrary\debug\prioenginestaticlibrary.pdb
-d:\documents\visual studio 2015\projects\prioenginestaticlibrary\prioenginestaticlibrary\debug\prioenginestaticlibrary.idb
-d:\documents\visual studio 2015\projects\prioenginestaticlibrary\prioenginestaticlibrary\debug\camera.obj
-d:\documents\visual studio 2015\projects\prioenginestaticlibrary\prioenginestaticlibrary\debug\colourshader.obj
-d:\documents\visual studio 2015\projects\prioenginestaticlibrary\prioenginestaticlibrary\debug\cube.obj
-d:\documents\visual studio 2015\projects\prioenginestaticlibrary\prioenginestaticlibrary\debug\d3d11.obj
-d:\documents\visual studio 2015\projects\prioenginestaticlibrary\prioenginestaticlibrary\debug\diffuselightshader.obj
-d:\documents\visual studio 2015\projects\prioenginestaticlibrary\prioenginestaticlibrary\debug\engine.obj
-d:\documents\visual studio 2015\projects\prioenginestaticlibrary\prioenginestaticlibrary\debug\gametimer.obj
-d:\documents\visual studio 2015\projects\prioenginestaticlibrary\prioenginestaticlibrary\debug\graphics.obj
-d:\documents\visual studio 2015\projects\prioenginestaticlibrary\prioenginestaticlibrary\debug\input.obj
-d:\documents\visual studio 2015\projects\prioenginestaticlibrary\prioenginestaticlibrary\debug\light.obj
-d:\documents\visual studio 2015\projects\prioenginestaticlibrary\prioenginestaticlibrary\debug\logger.obj
-d:\documents\visual studio 2015\projects\prioenginestaticlibrary\prioenginestaticlibrary\debug\mesh.obj
-d:\documents\visual studio 2015\projects\prioenginestaticlibrary\prioenginestaticlibrary\debug\model.obj
-d:\documents\visual studio 2015\projects\prioenginestaticlibrary\prioenginestaticlibrary\debug\modelcontrol.obj
-d:\documents\visual studio 2015\projects\prioenginestaticlibrary\prioenginestaticlibrary\debug\primitive.obj
-d:\documents\visual studio 2015\projects\prioenginestaticlibrary\prioenginestaticlibrary\debug\texture.obj
-d:\documents\visual studio 2015\projects\prioenginestaticlibrary\prioenginestaticlibrary\debug\textureshader.obj
-d:\documents\visual studio 2015\projects\prioenginestaticlibrary\prioenginestaticlibrary\debug\triangle.obj
-d:\documents\visual studio 2015\projects\prioenginestaticlibrary\prioenginestaticlibrary\debug\vertextypemanager.obj
-d:\documents\visual studio 2015\projects\prioenginestaticlibrary\prioenginestaticlibrary\debug\prioengi.6af12153.tlog\cl.command.1.tlog
-d:\documents\visual studio 2015\projects\prioenginestaticlibrary\prioenginestaticlibrary\debug\prioengi.6af12153.tlog\cl.read.1.tlog
-d:\documents\visual studio 2015\projects\prioenginestaticlibrary\prioenginestaticlibrary\debug\prioengi.6af12153.tlog\cl.write.1.tlog
+c:\users\sam\source\repos\prioenginestaticlibrary\prioenginestaticlibrary\debug\prioenginestaticlibrary.pdb
+c:\users\sam\source\repos\prioenginestaticlibrary\prioenginestaticlibrary\debug\prioenginestaticlibrary.idb
+c:\users\sam\source\repos\prioenginestaticlibrary\prioenginestaticlibrary\debug\fontshader.obj
+c:\users\sam\source\repos\prioenginestaticlibrary\prioenginestaticlibrary\debug\frustum.obj
+c:\users\sam\source\repos\prioenginestaticlibrary\prioenginestaticlibrary\debug\gamefont.obj
+c:\users\sam\source\repos\prioenginestaticlibrary\prioenginestaticlibrary\debug\gametext.obj
+c:\users\sam\source\repos\prioenginestaticlibrary\prioenginestaticlibrary\debug\gametimer.obj
+c:\users\sam\source\repos\prioenginestaticlibrary\prioenginestaticlibrary\debug\graphics.obj
+c:\users\sam\source\repos\prioenginestaticlibrary\prioenginestaticlibrary\debug\input.obj
+c:\users\sam\source\repos\prioenginestaticlibrary\prioenginestaticlibrary\debug\light.obj
+c:\users\sam\source\repos\prioenginestaticlibrary\prioenginestaticlibrary\debug\logger.obj
+c:\users\sam\source\repos\prioenginestaticlibrary\prioenginestaticlibrary\debug\mesh.obj
+c:\users\sam\source\repos\prioenginestaticlibrary\prioenginestaticlibrary\debug\model.obj
+c:\users\sam\source\repos\prioenginestaticlibrary\prioenginestaticlibrary\debug\modelcontrol.obj
+c:\users\sam\source\repos\prioenginestaticlibrary\prioenginestaticlibrary\debug\primitive.obj
+c:\users\sam\source\repos\prioenginestaticlibrary\prioenginestaticlibrary\debug\specularlightingshader.obj
+c:\users\sam\source\repos\prioenginestaticlibrary\prioenginestaticlibrary\debug\terrain.obj
+c:\users\sam\source\repos\prioenginestaticlibrary\prioenginestaticlibrary\debug\terrainshader.obj
+c:\users\sam\source\repos\prioenginestaticlibrary\prioenginestaticlibrary\debug\texture.obj
+c:\users\sam\source\repos\prioenginestaticlibrary\prioenginestaticlibrary\debug\textureshader.obj
+c:\users\sam\source\repos\prioenginestaticlibrary\prioenginestaticlibrary\debug\triangle.obj
+c:\users\sam\source\repos\prioenginestaticlibrary\prioenginestaticlibrary\debug\vertextypemanager.obj
+c:\users\sam\source\repos\prioenginestaticlibrary\prioenginestaticlibrary\debug\2dimage.obj
+c:\users\sam\source\repos\prioenginestaticlibrary\prioenginestaticlibrary\debug\camera.obj
+c:\users\sam\source\repos\prioenginestaticlibrary\prioenginestaticlibrary\debug\colourshader.obj
+c:\users\sam\source\repos\prioenginestaticlibrary\prioenginestaticlibrary\debug\cube.obj
+c:\users\sam\source\repos\prioenginestaticlibrary\prioenginestaticlibrary\debug\d3d11.obj
+c:\users\sam\source\repos\prioenginestaticlibrary\prioenginestaticlibrary\debug\diffuselightshader.obj
+c:\users\sam\source\repos\prioenginestaticlibrary\prioenginestaticlibrary\debug\engine.obj
+c:\users\sam\source\repos\prioenginestaticlibrary\prioenginestaticlibrary\debug\main.obj
+c:\users\sam\source\repos\prioenginestaticlibrary\prioenginestaticlibrary\debug\skybox.obj
+c:\users\sam\source\repos\prioenginestaticlibrary\prioenginestaticlibrary\debug\skyboxshader.obj
+c:\users\sam\source\repos\prioenginestaticlibrary\debug\prioenginestaticlibrary.lib
+c:\users\sconnolly\source\repos\prioenginestaticlibrary\prioenginestaticlibrary\debug\2dimage.obj
+c:\users\sconnolly\source\repos\prioenginestaticlibrary\prioenginestaticlibrary\debug\camera.obj
+c:\users\sconnolly\source\repos\prioenginestaticlibrary\prioenginestaticlibrary\debug\colourshader.obj
+c:\users\sconnolly\source\repos\prioenginestaticlibrary\prioenginestaticlibrary\debug\cube.obj
+c:\users\sconnolly\source\repos\prioenginestaticlibrary\prioenginestaticlibrary\debug\d3d11.obj
+c:\users\sconnolly\source\repos\prioenginestaticlibrary\prioenginestaticlibrary\debug\diffuselightshader.obj
+c:\users\sconnolly\source\repos\prioenginestaticlibrary\prioenginestaticlibrary\debug\engine.obj
+c:\users\sconnolly\source\repos\prioenginestaticlibrary\prioenginestaticlibrary\debug\fontshader.obj
+c:\users\sconnolly\source\repos\prioenginestaticlibrary\prioenginestaticlibrary\debug\frustum.obj
+c:\users\sconnolly\source\repos\prioenginestaticlibrary\prioenginestaticlibrary\debug\gamefont.obj
+c:\users\sconnolly\source\repos\prioenginestaticlibrary\prioenginestaticlibrary\debug\gametext.obj
+c:\users\sconnolly\source\repos\prioenginestaticlibrary\prioenginestaticlibrary\debug\gametimer.obj
+c:\users\sconnolly\source\repos\prioenginestaticlibrary\prioenginestaticlibrary\debug\graphics.obj
+c:\users\sconnolly\source\repos\prioenginestaticlibrary\prioenginestaticlibrary\debug\input.obj
+c:\users\sconnolly\source\repos\prioenginestaticlibrary\prioenginestaticlibrary\debug\light.obj
+c:\users\sconnolly\source\repos\prioenginestaticlibrary\prioenginestaticlibrary\debug\logger.obj
+c:\users\sconnolly\source\repos\prioenginestaticlibrary\prioenginestaticlibrary\debug\main.obj
+c:\users\sconnolly\source\repos\prioenginestaticlibrary\prioenginestaticlibrary\debug\mesh.obj
+c:\users\sconnolly\source\repos\prioenginestaticlibrary\prioenginestaticlibrary\debug\model.obj
+c:\users\sconnolly\source\repos\prioenginestaticlibrary\prioenginestaticlibrary\debug\modelcontrol.obj
+c:\users\sconnolly\source\repos\prioenginestaticlibrary\prioenginestaticlibrary\debug\primitive.obj
+c:\users\sconnolly\source\repos\prioenginestaticlibrary\prioenginestaticlibrary\debug\skybox.obj
+c:\users\sconnolly\source\repos\prioenginestaticlibrary\prioenginestaticlibrary\debug\skyboxshader.obj
+c:\users\sconnolly\source\repos\prioenginestaticlibrary\prioenginestaticlibrary\debug\specularlightingshader.obj
+c:\users\sconnolly\source\repos\prioenginestaticlibrary\prioenginestaticlibrary\debug\terrain.obj
+c:\users\sconnolly\source\repos\prioenginestaticlibrary\prioenginestaticlibrary\debug\terrainshader.obj
+c:\users\sconnolly\source\repos\prioenginestaticlibrary\prioenginestaticlibrary\debug\texture.obj
+c:\users\sconnolly\source\repos\prioenginestaticlibrary\prioenginestaticlibrary\debug\textureshader.obj
+c:\users\sconnolly\source\repos\prioenginestaticlibrary\prioenginestaticlibrary\debug\triangle.obj
+c:\users\sconnolly\source\repos\prioenginestaticlibrary\prioenginestaticlibrary\debug\vertextypemanager.obj
+c:\users\sconnolly\source\repos\prioenginestaticlibrary\prioenginestaticlibrary\debug\prioenginestaticlibrary.idb
+c:\users\sconnolly\source\repos\prioenginestaticlibrary\prioenginestaticlibrary\debug\prioenginestaticlibrary.pdb
+c:\users\sconnolly\source\repos\prioenginestaticlibrary\debug\prioenginestaticlibrary.pdb
+c:\users\sconnolly\source\repos\prioenginestaticlibrary\debug\prioenginestaticlibrary.lib
+c:\users\sconnolly\source\repos\prioenginestaticlibrary\prioenginestaticlibrary\debug\prioengi.6af12153.tlog\cl.command.1.tlog
+c:\users\sconnolly\source\repos\prioenginestaticlibrary\prioenginestaticlibrary\debug\prioengi.6af12153.tlog\cl.read.1.tlog
+c:\users\sconnolly\source\repos\prioenginestaticlibrary\prioenginestaticlibrary\debug\prioengi.6af12153.tlog\cl.write.1.tlog
+c:\users\sconnolly\source\repos\prioenginestaticlibrary\prioenginestaticlibrary\debug\prioengi.6af12153.tlog\lib-link.read.1.tlog
+c:\users\sconnolly\source\repos\prioenginestaticlibrary\prioenginestaticlibrary\debug\prioengi.6af12153.tlog\lib-link.write.1.tlog
+c:\users\sconnolly\source\repos\prioenginestaticlibrary\prioenginestaticlibrary\debug\prioengi.6af12153.tlog\lib.command.1.tlog

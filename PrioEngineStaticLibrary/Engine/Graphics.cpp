@@ -16,6 +16,13 @@ CGraphics::CGraphics()
 	mFullScreen = false;
 	mpFrustum = nullptr;
 	mpSkyboxShader = nullptr;
+	mpTerrain = nullptr;
+	mpSkybox = nullptr;
+	mpCloudPlane = nullptr;
+	mpCloudShader = nullptr;
+	mFrameTime = 0.0f;
+	mpRain = nullptr;
+	mpRainShader = nullptr;
 }
 
 CGraphics::~CGraphics()
@@ -67,6 +74,8 @@ bool CGraphics::Initialise(int screenWidth, int screenHeight, HWND hwnd)
 	mpCamera = CreateCamera();
 	mpCamera->Render();
 
+	//mpReflectionCamera = new CCamera(mScreenWidth, mScreenWidth, mFieldOfView, SCREEN_NEAR, SCREEN_DEPTH);
+
 	/// SET UP TEXT FROM CAMERA POS.
 	mpText = new CGameText();
 
@@ -107,22 +116,81 @@ bool CGraphics::Initialise(int screenWidth, int screenHeight, HWND hwnd)
 		return false;
 	}
 
-	const float ambientMultiplier = 0.3f;
-	D3DXVECTOR4 horizonColour = { 1.0f, 0.44f, 0.11f, 1.0f };
+	CreateSkybox();
+
+	D3DXVECTOR4 horizonColour = mpSkybox->GetCenterColour();
+
+	// Set up the diffuse colour for the light.
+	D3DXVECTOR4 diffuseColour = horizonColour;
+
+	// Copy the colour of the horizon for the ambient colour.
 	D3DXVECTOR4 ambientColour = horizonColour;
-	
-	ambientColour.x *= ambientMultiplier;
-	ambientColour.y *= ambientMultiplier;
-	ambientColour.z *= ambientMultiplier;
 
-	CLight* ambientLight;
-	ambientLight = CreateLight(D3DXVECTOR4{ ambientColour.x, ambientColour.y, ambientColour.z, 1.0f }, ambientColour);
-	ambientLight->SetDirection(D3DXVECTOR3{ 0.0, 0.0f, 1.0f });
-	ambientLight->SetSpecularColour(D3DXVECTOR4{ 1.0f, 1.0f, 1.0f, 1.0f });
-	ambientLight->SetSpecularPower(32.0f);
+	ambientColour.x *= mAmbientMultiplier;
+	ambientColour.y *= mAmbientMultiplier;
+	ambientColour.z *= mAmbientMultiplier;
+	ambientColour.w = 1.0f;
 
-	CreateSkybox(horizonColour);
+	// Set the direction of our light.
+	D3DXVECTOR3 direction(0.0f, 0.0f, 1.0f);
 
+	// Set up specular vairables for our light.
+	float specularPower = 0.1f;
+	D3DXVECTOR4 specularColour = ambientColour;
+
+	mpSceneLight = CreateLight(diffuseColour, specularColour, specularPower, ambientColour, direction);
+
+
+	mpWaterShader = new CWaterShader();
+	if (!mpWaterShader->Initialise(mpD3D->GetDevice(), hwnd))
+	{
+		logger->GetInstance().WriteSubtitle("Critical Error!");
+		logger->GetInstance().WriteLine("Failed to initialise the water shader, shutting down.");
+		logger->GetInstance().CloseSubtitle();
+
+		return false;
+	}
+
+	mpRefractionShader = new CReflectRefractShader();
+
+	if (!mpRefractionShader->Initialise(mpD3D->GetDevice(), hwnd))
+	{
+		logger->GetInstance().WriteSubtitle("Critical Error!");
+		logger->GetInstance().WriteLine("Failed to initialise the refraction shader, shutting down.");
+		logger->GetInstance().CloseSubtitle();
+		return false;
+	}
+
+	mpCloudPlane = new CCloudPlane();
+	if (!mpCloudPlane->Initialise(mpD3D->GetDevice(), "Resources/Textures/cloud1.dds", "Resources/Textures/cloud2.dds"))
+	{
+		logger->GetInstance().WriteLine("Failed to initialise the cloud plane in graphics class.");
+		return false;
+	}
+
+	mpCloudShader = new CCloudShader();
+	if (!mpCloudShader->Initialise(mpD3D->GetDevice(), hwnd))
+	{
+		logger->GetInstance().WriteLine("Failed tto initialise the cloud shader in graphics class.");
+		return false;
+	}
+
+	mpRain = new CRain();
+	if (!mpRain->Initialise(mpD3D->GetDevice(), "Resources/Textures/raindrop.dds", 25000))
+	{
+		logger->GetInstance().WriteLine("Failed to initialise the rain particle emitter.");
+		return false;
+	}
+
+		
+	mpRainShader = new CRainShader();
+	if (!mpRainShader->Initialise(mpD3D->GetDevice(), hwnd))
+	{
+		logger->GetInstance().WriteLine("Failed to initialise the rain shader.");
+		return false;
+	}
+
+	mpCamera->SetPosition(0.0f, 50.0f, 20.0f);
 	// Success!
 	logger->GetInstance().WriteLine("Direct3D was successfully initialised.");
 	return true;
@@ -130,12 +198,39 @@ bool CGraphics::Initialise(int screenWidth, int screenHeight, HWND hwnd)
 
 void CGraphics::Shutdown()
 {
-	for (auto skybox : mpSkyboxList)
+	if (mpRain)
 	{
-		skybox->Shutdown();
-		delete skybox;
-		skybox = nullptr;
-		logger->GetInstance().MemoryDeallocWriteLine(typeid(skybox).name());
+		mpRain->Shutdown();
+		delete mpRain;
+		mpRain = nullptr;
+	}
+
+	if (mpRainShader)
+	{
+		mpRainShader->Shutdown();
+		delete mpRainShader;
+		mpRainShader = nullptr;
+	}
+
+	if (mpCloudPlane)
+	{
+		mpCloudPlane->Shutdown();
+		delete mpCloudPlane;
+		mpCloudPlane = nullptr;
+	}
+
+	if (mpCloudShader)
+	{
+		mpCloudShader->Shutdown();
+		delete mpCloudShader;
+		mpCloudShader = nullptr;
+	}
+	if (mpSkybox)
+	{
+		mpSkybox->Shutdown();
+		delete mpSkybox;
+		mpSkybox = nullptr;
+		logger->GetInstance().MemoryDeallocWriteLine(typeid(mpSkybox).name());
 	}
 
 	if (mpSkyboxShader)
@@ -227,20 +322,17 @@ void CGraphics::Shutdown()
 	}
 	mpMeshes.clear();
 
-	for (auto light : mpLights)
+	if (mpSceneLight)
 	{
-		delete light;
-		light = nullptr;
-		logger->GetInstance().MemoryDeallocWriteLine(typeid(light).name());
+		delete mpSceneLight;
+		mpSceneLight = nullptr;
 	}
-	mpLights.clear();
 
-	for (auto terrain : mpTerrainGrids)
+	if (mpTerrain)
 	{
-		delete terrain;
-		terrain = nullptr;
+		delete mpTerrain;
+		mpTerrain = nullptr;
 	}
-	mpTerrainGrids.clear();
 
 	// Remove camera.
 
@@ -249,6 +341,21 @@ void CGraphics::Shutdown()
 		delete mpCamera;
 		mpCamera = nullptr;
 		logger->GetInstance().MemoryDeallocWriteLine(typeid(mpCamera).name());
+	}
+
+	if (mpWaterShader)
+	{
+		mpWaterShader->Shutdown();
+		delete mpWaterShader;
+		mpWaterShader = nullptr;
+		logger->GetInstance().MemoryDeallocWriteLine(typeid(mpWaterShader).name());
+	}
+
+	if (mpRefractionShader)
+	{
+		mpRefractionShader->Shutdown();
+		delete mpRefractionShader;
+		mpRefractionShader = nullptr;
 	}
 
 	// If the Direct 3D object exists.
@@ -266,9 +373,11 @@ void CGraphics::Shutdown()
 	return;
 }
 
-bool CGraphics::Frame()
+bool CGraphics::Frame(float updateTime)
 {
 	bool success;
+
+	UpdateScene(updateTime);
 
 	// Render the graphics scene.
 	success = Render();
@@ -284,39 +393,135 @@ bool CGraphics::Frame()
 	return true;
 }
 
+void CGraphics::UpdateScene(float updateTime)
+{
+	mFrameTime = updateTime;
+	mRunTime += updateTime;
+
+	mpCamera->Render();
+
+	for (auto primitive : mpPrimitives)
+	{
+		primitive->UpdateMatrices();
+	}
+
+	mpCloudPlane->Update(updateTime);
+
+	if (mpTerrain)
+	{
+		mpTerrain->Update(updateTime);
+		mpTerrain->UpdateMatrices();
+
+		if (!mpTerrain->GetUpdateFlag())
+		{
+			mpCamera->RenderReflection(mpTerrain->GetWater()->GetPosY());
+		}
+	}
+
+	if (mUpdateToDayTime)
+	{
+		// If we completed the skybox update.
+		if (mpSkybox->UpdateToDay(updateTime))
+		{
+			mTimeSinceLastSkyboxUpdate = 0.0f;
+			mUpdateToDayTime = false;
+		}
+
+		// Update the scene directional light.
+		mpSceneLight->SetDiffuseColour(mpSkybox->GetCenterColour());
+		D3DXVECTOR4 ambient = mpSceneLight->GetDiffuseColour();
+		ambient *= mAmbientMultiplier;
+		ambient.w = 1.0f;
+		mpSceneLight->SetAmbientColour(ambient);
+	}
+	else if (mUpdateToEveningTime)
+	{
+		// If we completed the skybox update.
+		if (mpSkybox->UpdateToEvening(updateTime))
+		{
+			mTimeSinceLastSkyboxUpdate = 0.0f;
+			mUpdateToEveningTime = false;
+		}
+
+		// Update the scene directional light.
+		mpSceneLight->SetDiffuseColour(mpSkybox->GetCenterColour());
+		D3DXVECTOR4 ambient = mpSceneLight->GetDiffuseColour();
+		ambient *= mAmbientMultiplier;
+		ambient.w = 1.0f;
+		mpSceneLight->SetAmbientColour(ambient);
+	}
+	else if (mUpdateToNightTime)
+	{
+		// If we completed the skybox update.
+		if (mpSkybox->UpdateToNight(updateTime))
+		{
+			mTimeSinceLastSkyboxUpdate = 0.0f;
+			mUpdateToNightTime = false;
+		}
+
+		// Update the scene directional light.
+		mpSceneLight->SetDiffuseColour(mpSkybox->GetCenterColour());
+		D3DXVECTOR4 ambient = mpSceneLight->GetDiffuseColour();
+		ambient *= mAmbientMultiplier;
+		ambient.w = 1.0f;
+		mpSceneLight->SetAmbientColour(ambient);
+	}
+	else if (mTimeSinceLastSkyboxUpdate > mSkyboxUpdateInterval && mUseTimeBasedSkybox)
+	{
+		// If we completed the skybox update.
+		if (mpSkybox->UpdateTimeOfDay(updateTime))
+		{
+			mTimeSinceLastSkyboxUpdate = 0.0f;
+		}
+
+		// Update the scene directional light.
+		mpSceneLight->SetDiffuseColour(mpSkybox->GetCenterColour());
+		D3DXVECTOR4 ambient = mpSceneLight->GetDiffuseColour();
+		ambient *= mAmbientMultiplier;
+		ambient.w = 1.0f;
+		mpSceneLight->SetAmbientColour(ambient);
+	}
+
+	mTimeSinceLastSkyboxUpdate += updateTime;
+
+	mpRain->Update(updateTime);
+}
+
 bool CGraphics::Render()
 {
 	D3DXMATRIX viewMatrix;
 	D3DXMATRIX worldMatrix;
 	D3DXMATRIX projMatrix;
+	D3DXMATRIX viewProj;
 	D3DXMATRIX orthoMatrix;
 	mpD3D->GetOrthogonalMatrix(orthoMatrix);
 
+	// Set the back buffer as the render target
+	mpD3D->SetBackBufferRenderTarget();
+	mpD3D->GetDeviceContext()->ClearDepthStencilView(mpD3D->GetDepthStencilView(), D3D11_CLEAR_DEPTH, 1.0f, 0);
+
 	// Clear buffers so we can begin to render the scene.
 	mpD3D->BeginScene(0.6f, 0.9f, 1.0f, 1.0f);
-
-	// Generate view matrix based on cameras current position.
-	mpCamera->Render();
 
 	// Get the world, view and projection matrices from the old camera and d3d objects.
 	mpCamera->GetViewMatrix(viewMatrix);
 	mpD3D->GetWorldMatrix(worldMatrix);
 	mpD3D->GetProjectionMatrix(projMatrix);
 	mpD3D->GetOrthogonalMatrix(orthoMatrix);
+	mpCamera->GetViewProjMatrix(viewProj, projMatrix);
 
 	mpFrustum->ConstructFrustum(SCREEN_DEPTH, projMatrix, viewMatrix);
-	
-	if (!RenderBitmaps(mBaseView, mBaseView, orthoMatrix))
+
+	if (!RenderSkybox(worldMatrix, viewMatrix, projMatrix, viewProj))
 		return false;
 
-	if (!RenderText(worldMatrix, mBaseView, orthoMatrix))
+	if (!RenderModels(worldMatrix, viewMatrix, projMatrix, viewProj))
 		return false;
 
-	if (!RenderSkybox(worldMatrix, viewMatrix, projMatrix))
+	if (!RenderBitmaps(mBaseView, mBaseView, orthoMatrix, viewProj))
 		return false;
 
-	// Render model using texture shader.
-	if (!RenderModels(worldMatrix, viewMatrix, projMatrix))
+	if (!RenderText(worldMatrix, mBaseView, orthoMatrix, viewProj))
 		return false;
 
 	TwDraw();
@@ -328,14 +533,14 @@ bool CGraphics::Render()
 }
 
 /* Renders any primitive shapes on the scene. */
-bool CGraphics::RenderPrimitives(D3DXMATRIX world, D3DXMATRIX view, D3DXMATRIX proj)
+bool CGraphics::RenderPrimitives(D3DXMATRIX world, D3DXMATRIX view, D3DXMATRIX proj, D3DXMATRIX viewProj)
 {
 	std::list<CPrimitive*>::iterator primitivesIt;
 	primitivesIt = mpPrimitives.begin();
 
 	while (primitivesIt != mpPrimitives.end())
 	{
-		(*primitivesIt)->UpdateMatrices(world);
+		(*primitivesIt)->GetWorldMatrix(world);
 
 		// put the model vertex and index buffers on the graphics pipleline to prepare them for dawing.
 		(*primitivesIt)->Render(mpD3D->GetDeviceContext());
@@ -343,6 +548,7 @@ bool CGraphics::RenderPrimitives(D3DXMATRIX world, D3DXMATRIX view, D3DXMATRIX p
 		// Render texture with no light.
 		if ((*primitivesIt)->HasTexture() && !(*primitivesIt)->UseDiffuseLight())
 		{
+			mpTextureShader->SetViewProjMatrix(viewProj);
 			if (!RenderPrimitiveWithTexture((*primitivesIt), world, view, proj))
 			{
 				return false;
@@ -351,6 +557,9 @@ bool CGraphics::RenderPrimitives(D3DXMATRIX world, D3DXMATRIX view, D3DXMATRIX p
 		// Render texture with light.
 		else if ((*primitivesIt)->HasTexture() && (*primitivesIt)->UseDiffuseLight())
 		{
+			// Pretty sure I broke this ages ago. Do I even care or ever want to render primitives?
+			// Probably not, but not certain yet.
+			// TODO: Investigate if I need this code.
 			//if (!RenderPrimitiveWithTextureAndDiffuseLight((*primitivesIt), world, view, proj))
 			//{
 			//	return false;
@@ -359,6 +568,7 @@ bool CGraphics::RenderPrimitives(D3DXMATRIX world, D3DXMATRIX view, D3DXMATRIX p
 		// Render colour.
 		else if ((*primitivesIt)->HasColour())
 		{
+			mpColourShader->SetViewProjMatrix(viewProj);
 			if (!RenderPrimitiveWithColour((*primitivesIt), world, view, proj))
 			{
 				return false;
@@ -371,55 +581,80 @@ bool CGraphics::RenderPrimitives(D3DXMATRIX world, D3DXMATRIX view, D3DXMATRIX p
 }
 
 /* Render any meshes / instances of meshes which we have created on the scene. */
-bool CGraphics::RenderMeshes(D3DXMATRIX world, D3DXMATRIX view, D3DXMATRIX proj)
+bool CGraphics::RenderMeshes(D3DXMATRIX world, D3DXMATRIX view, D3DXMATRIX proj, D3DXMATRIX viewProj)
 {
+	if (mpTerrain->GetUpdateFlag())
+	{
+		// Skip render pass.
+		logger->GetInstance().WriteLine("Updating terrain, skip the render pass.");
+		return true;
+	}
+
+	mpDiffuseLightShader->SetViewMatrix(view);
+	mpDiffuseLightShader->SetProjMatrix(proj);
+	mpDiffuseLightShader->SetViewProjMatrix(viewProj);
+
 	// Render any models which belong to each mesh. Do this in batches to make it faster.
 	for (auto mesh : mpMeshes)
 	{
-		mesh->Render(mpD3D->GetDeviceContext(), mpDiffuseLightShader, view, proj, mpLights);
+		mesh->Render(mpD3D->GetDeviceContext(), mpFrustum, mpDiffuseLightShader, mpSceneLight);
 	}
 
 	return true;
 }
 
 /* Render the terrain and all areas inside of it. */
-bool CGraphics::RenderTerrains(D3DXMATRIX world, D3DXMATRIX view, D3DXMATRIX proj)
+bool CGraphics::RenderTerrains(D3DXMATRIX world, D3DXMATRIX view, D3DXMATRIX proj, D3DXMATRIX viewProj)
 {
-	// Iterate through each terrain that has been created.
-	for (auto terrain : mpTerrainGrids)
+	// If we haven't actually initialised our terrain yet.
+	if (!mpTerrain)
 	{
-		// Update the world matrix and perform operations on the world matrix of this object.
-		terrain->UpdateMatrices(world);
+		// Output a message to the logger.
+		logger->GetInstance().WriteLine("Terrain has not yet been initialised, skipping render pass.");
+		// Completed.
+		return true;
+	}
 
-		terrain->Render(mpD3D->GetDeviceContext());
 
-		// Iterate through each light that we have on our scene.
-		for (auto light : mpLights)
+	// Update the world matrix and perform operations on the world matrix of this object.
+	mpTerrain->GetWorldMatrix(world);
+
+	mpTerrain->Render(mpD3D->GetDeviceContext());
+
+	if (mpSceneLight)
+	{
+		mpTerrainShader->SetWorldMatrix(world);
+		mpTerrainShader->SetViewMatrix(view);
+		mpTerrainShader->SetProjMatrix(proj);
+		mpTerrainShader->SetViewProjMatrix(viewProj);
+
+		// Render the terrain area with the diffuse light shader.
+		if (!mpTerrainShader->Render(mpD3D->GetDeviceContext(),
+			mpTerrain->GetIndexCount(),
+			mpTerrain->GetTexturesArray(),
+			mpTerrain->GetNumberOfTextures(),
+			mpTerrain->GetGrassTextureArray(),
+			mpTerrain->GetNumberOfGrassTextures(),
+			mpTerrain->GetRockTextureArray(),
+			mpTerrain->GetNumberOfRockTextures(),
+			mpSceneLight->GetDirection(),
+			mpSceneLight->GetDiffuseColour(),
+			mpSceneLight->GetAmbientColour(),
+			mpTerrain->GetHighestPoint(),
+			mpTerrain->GetLowestPoint(),
+			mpTerrain->GetPos(),
+			mpTerrain->GetSnowHeight(),
+			mpTerrain->GetGrassHeight(),
+			mpTerrain->GetDirtHeight(),
+			mpTerrain->GetSandHeight()
+		))
 		{
-			// Render the terrain area with the diffuse light shader.
-			if (!mpTerrainShader->Render(mpD3D->GetDeviceContext(),
-				terrain->GetIndexCount(), world, view, proj,
-				terrain->GetTexturesArray(),
-				terrain->GetNumberOfTextures(),
-				terrain->GetGrassTextureArray(),
-				terrain->GetNumberOfGrassTextures(),
-				terrain->GetRockTextureArray(),
-				terrain->GetNumberOfRockTextures(),
-				light->GetDirection(),
-				light->GetDiffuseColour(),
-				light->GetAmbientColour(),
-				terrain->GetHighestPoint(),
-				terrain->GetLowestPoint(),
-				terrain->GetPos(),
-				terrain->GetSnowHeight(),
-				terrain->GetGrassHeight(),
-				terrain->GetDirtHeight(),
-				terrain->GetSandHeight()
-			))
-			{
-				// If we failed to render, return false.
-				return false;
-			}
+			logger->GetInstance().WriteSubtitle("Critical error.");
+			logger->GetInstance().WriteLine("Failed to render the terrain with terrain render shader.");
+			logger->GetInstance().CloseSubtitle();
+
+			// If we failed to render, return false.
+			return false;
 		}
 	}
 
@@ -428,59 +663,97 @@ bool CGraphics::RenderTerrains(D3DXMATRIX world, D3DXMATRIX view, D3DXMATRIX pro
 
 }
 
-bool CGraphics::RenderSkybox(D3DXMATRIX &world, D3DXMATRIX &view, D3DXMATRIX &proj)
+bool CGraphics::RenderSkybox(D3DXMATRIX world, D3DXMATRIX view, D3DXMATRIX proj, D3DXMATRIX viewProj)
 {
-	for (auto skybox : mpSkyboxList)
+	if (!mpSkybox)
 	{
-		D3DXVECTOR3 cameraPosition;
-
-		// Get the position of the camera.
-		cameraPosition = mpCamera->GetPosition();
-
-		// Translate the sky dome to be centered around the camera position.
-		D3DXMatrixTranslation(&world, cameraPosition.x, cameraPosition.y, cameraPosition.z);
-
-		// Turn off back face culling.
-		mpD3D->TurnOffBackFaceCulling();
-
-		// Turn off the Z buffer.
-		mpD3D->DisableZBuffer();
-
-		// Render the sky dome using the sky dome shader.
-		skybox->Render(mpD3D->GetDeviceContext());
-		mpSkyboxShader->Render(mpD3D->GetDeviceContext(), skybox->GetIndexCount(), world, view, proj,
-			skybox->GetApexColor(), skybox->GetCenterColor());
-
-		// Turn back face culling back on.
-		mpD3D->TurnOnBackFaceCulling();
-
-		// Turn the Z buffer back on.
-		mpD3D->EnableZBuffer();
-
-		// Reset the world matrix.
-		mpD3D->GetWorldMatrix(world);
+		logger->GetInstance().WriteLine("No skybox exists, so skipping render pass for skybox.");
+		return true;
 	}
+
+	D3DXVECTOR3 cameraPosition;
+
+	// Get the position of the camera.
+	cameraPosition = mpCamera->GetPosition();
+
+	// Translate the sky dome to be centered around the camera position.
+	D3DXMatrixTranslation(&world, cameraPosition.x, cameraPosition.y, cameraPosition.z);
+
+	// Turn off back face culling.
+	mpD3D->TurnOffBackFaceCulling();
+
+	// Turn off the Z buffer.
+	mpD3D->DisableZBuffer();
+
+	// Render the sky dome using the sky dome shader.
+	mpSkybox->Render(mpD3D->GetDeviceContext());
+
+	mpSkyboxShader->SetWorldMatrix(world);
+	mpSkyboxShader->SetViewMatrix(view);
+	mpSkyboxShader->SetProjMatrix(proj);
+	mpSkyboxShader->SetViewProjMatrix(viewProj);
+
+	mpSkyboxShader->Render(mpD3D->GetDeviceContext(), mpSkybox->GetIndexCount(), 
+		mpSkybox->GetApexColor(), mpSkybox->GetCenterColour());
+
+	// Turn back face culling back on.
+	mpD3D->TurnOnBackFaceCulling();
+
+	// Allow the clouds to additively blend with the skybox.
+	mpD3D->EnableAdditiveAlphaBlending();
+
+	// Place the cloud plane vertex / index data onto the rendering pipeline.
+	mpCloudPlane->Render(mpD3D->GetDeviceContext());
+
+	// Set shader variables before rendering clouds with the shader.
+	mpCloudShader->SetBrightness(mpCloudPlane->GetBrightness());
+	mpCloudShader->SetCloud1Movement(mpCloudPlane->GetMovement(0).x, mpCloudPlane->GetMovement(0).y);
+	mpCloudShader->SetCloud2Movement(mpCloudPlane->GetMovement(1).x, mpCloudPlane->GetMovement(1).y);
+
+	mpCloudShader->SetWorldMatrix(world);
+	mpCloudShader->SetViewMatrix(view);
+	mpCloudShader->SetProjMatrix(proj);
+	mpCloudShader->SetViewProjMatrix(viewProj);
+	mpCloudShader->SetCloudTexture1(mpCloudPlane->GetCloudTexture1());
+	mpCloudShader->SetCloudTexture2(mpCloudPlane->GetCloudTexture2());
+
+	// Render the clouds using vertex and pixel shaders.
+	mpCloudShader->Render(mpD3D->GetDeviceContext(), mpCloudPlane->GetIndexCount());
+
+	// Turn off alpha blending.
+	mpD3D->DisableAlphaBlending();
+
+	// Turn the Z buffer back on.
+	mpD3D->EnableZBuffer();
+
+	// Reset the world matrix.
+	mpD3D->GetWorldMatrix(world);
 
 	return true;
 }
 
 /* Renders physical entities within the scene. */
-bool CGraphics::RenderModels(D3DXMATRIX world, D3DXMATRIX view, D3DXMATRIX proj)
+bool CGraphics::RenderModels(D3DXMATRIX world, D3DXMATRIX view, D3DXMATRIX proj, D3DXMATRIX viewProj)
 {
-	if (!RenderPrimitives(world, view, proj))
+	if (!RenderWater(world, view, proj, viewProj))
 		return false;
 
-	if (!RenderMeshes(world, view, proj))
+	if (!RenderPrimitives(world, view, proj, viewProj))
 		return false;
 
-	if (!RenderTerrains(world, view, proj))
+	if (!RenderMeshes(world, view, proj, viewProj))
 		return false;
 
+	if (!RenderTerrains(world, view, proj, viewProj))
+		return false;
+
+	if (!RenderRain(world, view, proj, viewProj))
+		return false;
 
 	return true;
 }
 
-bool CGraphics::RenderText(D3DXMATRIX world, D3DXMATRIX view, D3DXMATRIX ortho)
+bool CGraphics::RenderText(D3DXMATRIX world, D3DXMATRIX view, D3DXMATRIX ortho, D3DXMATRIX viewProj)
 {
 	mpD3D->DisableZBuffer();
 	mpD3D->EnableAlphaBlending();
@@ -500,7 +773,7 @@ bool CGraphics::RenderText(D3DXMATRIX world, D3DXMATRIX view, D3DXMATRIX ortho)
 	return true;
 }
 
-bool CGraphics::RenderBitmaps(D3DXMATRIX world, D3DXMATRIX view, D3DXMATRIX ortho)
+bool CGraphics::RenderBitmaps(D3DXMATRIX world, D3DXMATRIX view, D3DXMATRIX ortho, D3DXMATRIX viewProj)
 {
 	mpD3D->DisableZBuffer();
 	mpD3D->EnableAlphaBlending();
@@ -518,9 +791,14 @@ bool CGraphics::RenderBitmaps(D3DXMATRIX world, D3DXMATRIX view, D3DXMATRIX orth
 		}
 	}
 
+	mpTextureShader->SetWorldMatrix(world);
+	mpTextureShader->SetViewMatrix(view);
+	mpTextureShader->SetProjMatrix(ortho);
+	mpTextureShader->SetViewProjMatrix(viewProj);
+
 	for (auto image : mpUIImages)
 	{
-		result = mpTextureShader->Render(mpD3D->GetDeviceContext(), image->GetNumberOfIndices(), world, view, ortho, image->GetTexture());
+		result = mpTextureShader->Render(mpD3D->GetDeviceContext(), image->GetNumberOfIndices(), image->GetTexture());
 
 		if (!result)
 		{
@@ -617,7 +895,7 @@ bool CGraphics::SetFullscreen(bool isEnabled)
 	return true;
 }
 
-CSkyBox * CGraphics::CreateSkybox(D3DXVECTOR4 ambientColour)
+CSkyBox * CGraphics::CreateSkybox()
 {
 	CSkyBox* skybox;
 	logger->GetInstance().WriteLine("Setting up skybox.");
@@ -628,49 +906,311 @@ CSkyBox * CGraphics::CreateSkybox(D3DXVECTOR4 ambientColour)
 		return false;
 	}
 
-	bool result = skybox->Initialise(mpD3D->GetDevice(), ambientColour);
+	bool result = skybox->Initialise(mpD3D->GetDevice());
 	if (!result)
 	{
 		logger->GetInstance().WriteLine("Failed to create the skybox.");
 		return false;
 	}
 
-	mpSkyboxList.push_back(skybox);
+	// Deallocate the old one before copying it over.
+	if (mpSkybox)
+	{
+		mpSkybox->Shutdown();
+		delete mpSkybox;
+		mpSkybox = nullptr;
+		logger->GetInstance().WriteLine("Deallocating the skybox as a new one is being created, this should avoid memory leaks.");
+	}
+
+	mpSkybox = skybox;
 
 	return skybox;
 }
 
-//bool CGraphics::RenderPrimitiveWithTextureAndDiffuseLight(CPrimitive* model, D3DXMATRIX worldMatrix, D3DXMATRIX viewMatrix, D3DXMATRIX projMatrix)
-//{
-//	bool success = false;
-//
-//	// Attempt to render the model with the texture specified.
-//	std::list<CLight*>::iterator it;
-//	it = mpLights.begin();
-//
-//	// Render each diffuse light in the list.
-//	do
-//	{
-//		success = mpDiffuseLightShader->Render(mpD3D->GetDeviceContext(), model->GetIndex(), worldMatrix, viewMatrix, projMatrix, model->GetTexture(), (*it)->GetDirection(), (*it)->GetDiffuseColour(), (*it)->GetAmbientColour());
-//		it++;
-//	} while (it != mpLights.end());
-//
-//	// If we did not successfully render.
-//	if (!success)
-//	{
-//		logger->GetInstance().WriteLine("Failed to render the model using the texture shader in graphics.cpp.");
-//		return false;
-//	}
-//
-//	return true;
-//}
+
+bool CGraphics::RenderWater(D3DXMATRIX world, D3DXMATRIX view, D3DXMATRIX proj, D3DXMATRIX viewProj)
+{
+	if (mpTerrain == nullptr)
+	{
+		logger->GetInstance().WriteLine("Skipping water as there's nothing to render.");
+		return true;
+	}
+	if (mpTerrain->GetWater() == nullptr)
+	{
+		logger->GetInstance().WriteLine("No body of water exists for this terrain yet, skipping render pass.");
+		return true;
+	}
+	if (mpTerrain->GetUpdateFlag())
+	{
+		logger->GetInstance().WriteLine("Skipping render pass for water as the terrain is currently being updated.");
+		return true;
+	}
+
+	bool result = true;
+
+	// Reset the world matrix.
+	mpD3D->GetWorldMatrix(world);
+
+	/////////////////////////////////
+	// Height
+	////////////////////////////////
+
+	D3DXMATRIX camWorld;
+	mpWaterShader->SetWorldMatrix(world);
+	mpWaterShader->SetViewMatrix(view);
+	mpWaterShader->SetProjMatrix(proj);
+	mpWaterShader->SetViewProjMatrix(viewProj);
+
+	mpWaterShader->SetWaterMovement(mpTerrain->GetWater()->GetMovement());
+	mpWaterShader->SetWaveHeight(mpTerrain->GetWater()->GetWaveHeight());
+	mpWaterShader->SetWaveScale(mpTerrain->GetWater()->GetWaveScale());
+	mpWaterShader->SetDistortion(mpTerrain->GetWater()->GetRefractionDistortion(), mpTerrain->GetWater()->GetReflectionDistortion());
+	mpWaterShader->SetMaxDistortion(mpTerrain->GetWater()->GetMaxDistortionDistance());
+	mpWaterShader->SetRefractionStrength(mpTerrain->GetWater()->GetRefractionStrength());
+	mpWaterShader->SetReflectionStrength(mpTerrain->GetWater()->GetReflectionStrength());
+	mpCamera->GetWorldMatrix(camWorld);
+	mpWaterShader->SetCameraMatrix(camWorld);
+	mpWaterShader->SetCameraPosition(mpCamera->GetPosition());
+	mpWaterShader->SetViewportSize(mScreenWidth, mScreenHeight);
+	mpWaterShader->SetLightProperties(mpSceneLight);
+	mpWaterShader->SetNormalMap(mpTerrain->GetWater()->GetNormalMap());
+
+	// Set render target to the height texture map.
+	mpTerrain->GetWater()->SetHeightMapRenderTarget(mpD3D->GetDeviceContext(), mpD3D->GetDepthStencilView());
+	
+	mpTerrain->GetWater()->GetHeightTexture()->ClearRenderTarget(mpD3D->GetDeviceContext(), mpD3D->GetDepthStencilView(), 0.0f, 0.0f, 0.0f, 0.0f);
+	//mpD3D->GetDeviceContext()->ClearDepthStencilView(mpD3D->GetDepthStencilView(), D3D11_CLEAR_DEPTH, 1.0f, 0);
+
+	// Render the water height map.
+	mpTerrain->GetWater()->Render(mpD3D->GetDeviceContext());
+	mpTerrain->GetWater()->GetWorldMatrix(world);
+	mpWaterShader->SetWorldMatrix(world);
+	result = mpWaterShader->RenderHeight(mpD3D->GetDeviceContext(), mpTerrain->GetWater()->GetNumberOfIndices());
+
+	if (!result)
+	{
+		return false;
+	}
+
+	// Two requirements for refraction and refleciton are a light and terrain.
+	if (mpTerrain && mpSceneLight)
+	{
+		//////////////////////////////
+		// Refraction
+		//////////////////////////////
+
+		mpD3D->GetWorldMatrix(world);
+		// Reset the terrain world matrix
+		mpTerrain->GetWorldMatrix(world);
+
+		
+		mpTerrain->GetWater()->SetRefractionRenderTarget(mpD3D->GetDeviceContext(), mpD3D->GetDepthStencilView());
+		//mpD3D->GetDeviceContext()->ClearDepthStencilView(mpD3D->GetDepthStencilView(), D3D11_CLEAR_DEPTH, 1.0f, 0);
+
+		// Place our refract / reflect properties into the refract reflect shader.
+		mpRefractionShader->SetWorldMatrix(world);
+		mpRefractionShader->SetViewMatrix(view);
+		mpRefractionShader->SetProjMatrix(proj);
+		mpRefractionShader->SetViewProjMatrix(viewProj);
+		mpRefractionShader->SetLightProperties(mpSceneLight);
+		mpRefractionShader->SetViewportProperties(mScreenWidth, mScreenHeight);
+		mpRefractionShader->SetTerrainAreaProperties(mpTerrain->GetSnowHeight(), mpTerrain->GetGrassHeight(), mpTerrain->GetDirtHeight(), mpTerrain->GetSandHeight());
+		mpRefractionShader->SetPositioningProperties(mpTerrain->GetPosY(), mpTerrain->GetWater()->GetPosY());
+		mpRefractionShader->SetWaterHeightmap(mpTerrain->GetWater()->GetHeightTexture()->GetShaderResourceView());
+		mpRefractionShader->SetDirtTextureArray(mpTerrain->GetTexturesArray());
+		mpRefractionShader->SetGrassTextureArray(mpTerrain->GetGrassTextureArray());
+		mpRefractionShader->SetPatchMap(mpTerrain->GetPatchMap());
+		mpRefractionShader->SetRockTexture(mpTerrain->GetRockTextureArray());
+
+		mpTerrain->Render(mpD3D->GetDeviceContext()); 
+		mpTerrain->GetWater()->GetRefractionTexture()->ClearRenderTarget(mpD3D->GetDeviceContext(), mpD3D->GetDepthStencilView(), mpSceneLight->GetDiffuseColour().x, mpSceneLight->GetDiffuseColour().y, mpSceneLight->GetDiffuseColour().z, 1.0f);
+		result = mpRefractionShader->RefractionRender(mpD3D->GetDeviceContext(), mpTerrain->GetIndexCount());
+
+		if (!result)
+		{
+			logger->GetInstance().WriteLine("Failed to render the refraction shader for water. ");
+			return false;
+		}
+
+		/////////////////////////////////
+		// Reflection
+		/////////////////////////////////
+
+			//mpCamera->GetReflectionViewMatrix(view);
+			// Render vertices using reflection shader.
+			mpTerrain->GetWater()->GetReflectionTexture()->ClearRenderTarget(mpD3D->GetDeviceContext(), mpD3D->GetDepthStencilView(), mpSceneLight->GetDiffuseColour().x, mpSceneLight->GetDiffuseColour().y, mpSceneLight->GetDiffuseColour().z, 1.0f);
+
+			mpTerrain->GetWater()->SetReflectionRenderTarget(mpD3D->GetDeviceContext(), mpD3D->GetDepthStencilView());
+			mpD3D->GetDeviceContext()->ClearDepthStencilView(mpD3D->GetDepthStencilView(), D3D11_CLEAR_DEPTH, 1.0f, 0);
+
+			mpCamera->GetReflectionView(view);
+			mpRefractionShader->SetWorldMatrix(world);
+			mpRefractionShader->SetViewMatrix(view);
+			mpRefractionShader->SetProjMatrix(proj);
+			mpRefractionShader->SetViewProjMatrix(view * proj);
+
+			mpD3D->TurnOffBackFaceCulling();
+
+			/////////////////////////////
+			// SKYBOX
+			////////////////////////////
+			mpD3D->DisableZBuffer();
+			mpD3D->GetWorldMatrix(world);
+			// Translate the sky dome to be centered around the camera position.
+			D3DXMatrixTranslation(&world, mpCamera->GetPosition().x, mpCamera->GetPosition().y, mpCamera->GetPosition().z);
+			// Allow the clouds to additively blend with the skybox.
+			mpD3D->EnableAdditiveAlphaBlending();
+
+			// Place the cloud plane vertex / index data onto the rendering pipeline.
+			mpCloudPlane->Render(mpD3D->GetDeviceContext());
+
+			// Set shader variables before rendering clouds with the shader.
+			mpCloudShader->SetBrightness(mpCloudPlane->GetBrightness());
+			mpCloudShader->SetCloud1Movement(mpCloudPlane->GetMovement(0).x, mpCloudPlane->GetMovement(0).y);
+			mpCloudShader->SetCloud2Movement(mpCloudPlane->GetMovement(1).x, mpCloudPlane->GetMovement(1).y);
+			mpCloudShader->SetWorldMatrix(world);
+			mpCloudShader->SetViewMatrix(view);
+			mpCloudShader->SetProjMatrix(proj);
+			mpCloudShader->SetViewProjMatrix(view * proj);
+			mpCloudShader->SetCloudTexture1(mpCloudPlane->GetCloudTexture1());
+			mpCloudShader->SetCloudTexture2(mpCloudPlane->GetCloudTexture2());
+
+			// Render the clouds using vertex and pixel shaders.
+			mpCloudShader->Render(mpD3D->GetDeviceContext(), mpCloudPlane->GetIndexCount());
+
+			// Turn off alpha blending.
+			mpD3D->DisableAlphaBlending();
+			mpD3D->EnableZBuffer();
+
+			////////////////////////////
+			// Terrain
+			////////////////////////////
+
+			RenderTerrains(world, view, proj, view * proj);
+			//// Reset the terrain world matrix
+			//mpTerrain->GetWorldMatrix(world);
+
+			///* Render the reflection of the terrain. */
+
+			//// Place vertices onto render pipeline.
+			//mpTerrain->Render(mpD3D->GetDeviceContext());
+
+			//result = mpRefractionShader->ReflectionRender(mpD3D->GetDeviceContext(), mpTerrain->GetIndexCount());
+			//if (!result)
+			//{
+			//	logger->GetInstance().WriteLine("Failed to render the reflection shader for water. ");
+			//	return false;
+			//}
+
+			/* Render the reflection of models within the scene. */
+
+			// Render any models which belong to each mesh. Do this in batches to make it faster.
+			mpDiffuseLightShader->SetViewMatrix(view);
+			mpDiffuseLightShader->SetProjMatrix(proj);
+			mpDiffuseLightShader->SetViewMatrix(view * proj);
+			if (mpTerrain->GetUpdateFlag())
+			{
+				// Skip render pass.
+				logger->GetInstance().WriteLine("Updating terrain, skip the render pass.");
+			}
+			else
+			{
+				for (auto mesh : mpMeshes)
+				{
+					mesh->Render(mpD3D->GetDeviceContext(), mpFrustum, mpDiffuseLightShader, mpSceneLight);
+				}
+			}
+			mpD3D->TurnOnBackFaceCulling();
+
+		
+	}
+
+	/////////////////////////////////
+	// Water Model
+	/////////////////////////////////
+
+	mpD3D->SetBackBufferRenderTarget();
+	mpD3D->GetDeviceContext()->ClearDepthStencilView(mpD3D->GetDepthStencilView(), D3D11_CLEAR_DEPTH, 1.0f, 0);
+
+	mpTerrain->GetWater()->Render(mpD3D->GetDeviceContext());
+
+	//mpWaterShader->SetNormalMap(mpWater->GetNormalMap());
+	mpWaterShader->SetRefractionMap(mpTerrain->GetWater()->GetRefractionTexture()->GetShaderResourceView());
+	mpWaterShader->SetReflectionMap(mpTerrain->GetWater()->GetReflectionTexture()->GetShaderResourceView());
+
+	result = mpWaterShader->RenderSurface(mpD3D->GetDeviceContext(), mpTerrain->GetWater()->GetNumberOfIndices());
+
+
+	if (!result)
+	{
+		return false;
+	}
+
+	return true;
+}
+
+bool CGraphics::RenderRain(D3DXMATRIX world, D3DXMATRIX view, D3DXMATRIX proj, D3DXMATRIX viewProj)
+{
+	mpD3D->GetWorldMatrix(world);
+
+	mpRain->SetEmitterPos(D3DXVECTOR3(0.0f, 40.0f, 100.0f));
+	mpRain->SetEmitterDir(D3DXVECTOR3(0.0f, 1.0f, 0.0f));
+
+	mpRainShader->SetCameraWorldPosition(mpCamera->GetPosition());
+	mpRainShader->SetEmitterWorldDirection(mpRain->GetEmitterDir());
+	mpRainShader->SetEmitterWorldPosition(mpRain->GetEmitterPos());
+	mpRainShader->SetFrameTime(mFrameTime);
+	mpRainShader->SetGameTime(mpRain->GetAge());
+	mpRainShader->SetGravityAcceleration(-9.81f);
+	mpRainShader->SetWorldMatrix(world);
+	mpRainShader->SetProjMatrix(proj);
+	mpRainShader->SetViewMatrix(view);
+	mpRainShader->SetViewProjMatrix(viewProj);
+	mpRainShader->SetRainTexture(mpRain->GetRainTexture());
+	mpRainShader->SetFirstRun(mpRain->GetIsFirstRun());
+	mpRainShader->SetWindX(0.0f);
+	mpRainShader->SetWindZ(0.0f);
+
+	mpRainShader->SetWorldMatrix(world);
+	mpRainShader->SetViewMatrix(view);
+	mpRainShader->SetProjMatrix(proj);
+	mpRainShader->SetViewProjMatrix(viewProj);
+
+	////////////////////
+	// Update
+	////////////////////
+
+	mpD3D->TurnOffBackFaceCulling();
+	mpD3D->SetDepthState(false, false, false);
+
+	mpRain->UpdateRender(mpD3D->GetDeviceContext());
+	mpRainShader->SetRandomTexture(mpRain->GetRandomTexture());
+	mpRainShader->SetFirstRun(mpRain->GetIsFirstRun());
+	mpRainShader->UpdateRender(mpD3D->GetDeviceContext());
+	mpRain->SetFirstRun(false);
+
+	////////////////////
+	// Draw
+	////////////////////
+
+	mpRain->Render(mpD3D->GetDeviceContext());
+	mpD3D->SetDepthState(true, false, false);
+	mpRainShader->Render(mpD3D->GetDeviceContext());
+
+	mpD3D->TurnOnBackFaceCulling();
+
+	return true;
+}
 
 bool CGraphics::RenderPrimitiveWithColour(CPrimitive* model, D3DMATRIX worldMatrix, D3DMATRIX viewMatrix, D3DMATRIX projMatrix)
 {
 	bool success = false;
 
 	// Render the model using the colour shader.
-	success = mpColourShader->Render(mpD3D->GetDeviceContext(), model->GetIndex(), worldMatrix, viewMatrix, projMatrix);
+	mpColourShader->SetWorldMatrix(worldMatrix);
+	mpColourShader->SetViewMatrix(viewMatrix);
+	mpColourShader->SetProjMatrix(projMatrix);
+	success = mpColourShader->Render(mpD3D->GetDeviceContext(), model->GetIndex());
 	if (!success)
 	{
 		logger->GetInstance().WriteLine("Failed to render the model using the colour shader object.");
@@ -685,7 +1225,10 @@ bool CGraphics::RenderPrimitiveWithTexture(CPrimitive* model, D3DXMATRIX worldMa
 	bool success = false;
 
 	// Attempt to render the model with the texture specified.
-	success = mpTextureShader->Render(mpD3D->GetDeviceContext(), model->GetIndex(), worldMatrix, viewMatrix, projMatrix, model->GetTexture());
+	mpTextureShader->SetWorldMatrix(worldMatrix);
+	mpTextureShader->SetViewMatrix(viewMatrix);
+	mpTextureShader->SetProjMatrix(projMatrix);
+	success = mpTextureShader->Render(mpD3D->GetDeviceContext(), model->GetIndex(), model->GetTexture());
 
 	if (!success)
 	{
@@ -977,7 +1520,7 @@ bool CGraphics::RemovePrimitive(CPrimitive* &model)
 	return false;
 }
 
-CMesh* CGraphics::LoadMesh(std::string filename)
+CMesh* CGraphics::LoadMesh(std::string filename, float radius)
 {
 	// Allocate the mesh memory.
 	CMesh* mesh = new CMesh(mpD3D->GetDevice());
@@ -985,12 +1528,12 @@ CMesh* CGraphics::LoadMesh(std::string filename)
 	logger->GetInstance().MemoryAllocWriteLine(typeid(mesh).name());
 
 	// If we failed to load the mesh, then delete the object and return a nullptr.
-	if (!mesh->LoadMesh(filename))
+	if (!mesh->LoadMesh(filename, radius))
 	{
 		// Deallocate memory.
 		delete mesh;
 		logger->GetInstance().MemoryDeallocWriteLine(typeid(mesh).name());
-		logger->WriteLine("Failed to load the mesh with name " + filename);
+		logger->GetInstance().WriteLine("Failed to load the mesh with name " + filename);
 		return nullptr;
 	}
 
@@ -1014,6 +1557,8 @@ bool CGraphics::RemoveMesh(CMesh *& mesh)
 		// If the current position of our list is the same as the mesh parameter passed in.
 		if ((*it) == mesh)
 		{
+			mesh->Shutdown();
+
 			// Deallocate memory.
 			delete mesh;
 			// Reset the pointer to be null.
@@ -1040,9 +1585,16 @@ bool CGraphics::RemoveMesh(CMesh *& mesh)
 
 CTerrain * CGraphics::CreateTerrain(std::string mapFile)
 {
-	CTerrain* terrain = new CTerrain(mpD3D->GetDevice());
+	if (mpTerrain)
+	{
+		logger->GetInstance().WriteLine("Found a previously initialised instance of terrain, deleting it now. It will be reinitialised without memory leaks.");
+		delete mpTerrain;
+		mpTerrain = nullptr;
+	}
+
+	CTerrain* terrain = new CTerrain(mpD3D->GetDevice(), mScreenWidth, mScreenHeight);
 	logger->GetInstance().WriteLine("Created terrain from the graphics object.");
-	mpTerrainGrids.push_back(terrain);
+	mpTerrain = terrain;
 
 	// Check a map file was actually passed in.
 	if (mapFile != "")
@@ -1066,9 +1618,16 @@ CTerrain * CGraphics::CreateTerrain(std::string mapFile)
 
 CTerrain * CGraphics::CreateTerrain(double ** heightMap, int mapWidth, int mapHeight)
 {
-	CTerrain* terrain = new CTerrain(mpD3D->GetDevice());
+	if (mpTerrain)
+	{
+		logger->GetInstance().WriteLine("Found a previously initialised instance of terrain, deleting it now. It will be reinitialised without memory leaks.");
+		delete mpTerrain;
+		mpTerrain = nullptr;
+	}
+
+	CTerrain* terrain = new CTerrain(mpD3D->GetDevice(), mScreenWidth, mScreenHeight);
 	logger->GetInstance().WriteLine("Created terrain from the graphics object.");
-	mpTerrainGrids.push_back(terrain);
+	mpTerrain = terrain;
 
 	// Loading height map
 	terrain->SetWidth(mapWidth);
@@ -1082,7 +1641,7 @@ CTerrain * CGraphics::CreateTerrain(double ** heightMap, int mapWidth, int mapHe
 }
 
 /* Create an instance of a light and return a pointer to it. */
-CLight * CGraphics::CreateLight(D3DXVECTOR4 diffuseColour, D3DXVECTOR4 ambientColour)
+CLight * CGraphics::CreateLight(D3DXVECTOR4 diffuseColour, D3DXVECTOR4 specularColour, float specularPower, D3DXVECTOR4 ambientColour, D3DXVECTOR3 direction)
 {
 	CLight* light = new CLight();
 	if (!light)
@@ -1096,10 +1655,9 @@ CLight * CGraphics::CreateLight(D3DXVECTOR4 diffuseColour, D3DXVECTOR4 ambientCo
 	// Set the colour to our colour variable passed in.
 	light->SetDiffuseColour(diffuseColour);
 	light->SetAmbientColour(ambientColour);
-	light->SetDirection({ 1.0f, 1.0f, 1.0f });
-
-	// Stick the new instance on a list so we can track it, we can then ensure there are no memory leaks.
-	mpLights.push_back(light);
+	light->SetDirection(direction);
+	light->SetSpecularColour(specularColour);
+	light->SetSpecularPower(specularPower);
 
 	// Output success message.
 	logger->GetInstance().WriteLine("Light successfully created.");
@@ -1108,43 +1666,60 @@ CLight * CGraphics::CreateLight(D3DXVECTOR4 diffuseColour, D3DXVECTOR4 ambientCo
 	return light;
 }
 
-/* Searches for the light pointer which has been created by the engine, and attempts to remove it.
-@Return Successfully removed light (Bool) */
-bool CGraphics::RemoveLight(CLight *& light)
+void CGraphics::EnableTimeBasedSkybox(bool enabled)
 {
-	// Define an iterator.
-	std::list<CLight*>::iterator it;
-	// Initialise it to the start of the lights list.
-	it = mpLights.begin();
+	mUseTimeBasedSkybox = enabled;
+}
 
-	// Iterate through the list.
-	while (it != mpLights.end())
-	{
-		// If the current position of our list is the same as the light parameter passed in.
-		if ((*it) == light)
-		{
-			// Deallocate memory.
-			delete light;
-			// Reset the pointer to be null.
-			(*it) = nullptr;
-			// Output the memory deallocation message to the memory log.
-			logger->GetInstance().MemoryDeallocWriteLine(typeid((*it)).name());
-			// Erase this element off of the list.
-			mpLights.erase(it);
-			// Set the value of the parameter to be null as well, so we have NO pointers to this area of memory any more.
-			light = nullptr;
-			// Complete! Return success.
-			return true;
-		}
-		// Increment the iterator.
-		it++;
-	}
+bool CGraphics::GetTimeBasedSkyboxEnabled()
+{
+	return mUseTimeBasedSkybox;
+}
 
-	// If we got to this point, the light that was passed in was not found on the list. Output failure message to the log.
-	logger->GetInstance().WriteLine("Failed to find light to delete.");
+void CGraphics::SetSkyboxUpdateInterval(float interval)
+{
+	mSkyboxUpdateInterval = interval;
+}
 
-	// Return failure.
-	return false;
+float CGraphics::GetSkyboxUpdateInterval()
+{
+	return mSkyboxUpdateInterval;
+}
+
+void CGraphics::SetDayTime()
+{
+	mUpdateToDayTime = true;
+	mUpdateToEveningTime = false;
+	mUpdateToNightTime = false;
+}
+
+void CGraphics::SetNightTime()
+{
+	mUpdateToDayTime = false;
+	mUpdateToEveningTime = false;
+	mUpdateToNightTime = true;
+}
+
+void CGraphics::SetEveningTime()
+{
+	mUpdateToDayTime = false;
+	mUpdateToEveningTime = true;
+	mUpdateToNightTime = false;
+}
+
+bool CGraphics::IsDayTime()
+{
+	return mpSkybox->IsDayTime();
+}
+
+bool CGraphics::IsNightTime()
+{
+	return mpSkybox->IsNightTime();
+}
+
+bool CGraphics::IsEveningTime()
+{
+	return mpSkybox->IsEveningTime();
 }
 
 CCamera* CGraphics::CreateCamera()
@@ -1171,6 +1746,8 @@ void CGraphics::SetCameraPos(float x, float y, float z)
 
 void CGraphics::ToggleWireframe()
 {
+	mWireframeEnabled = !mWireframeEnabled;
+
 	if (!mWireframeEnabled)
 	{
 		mpD3D->EnableSolidFill();
@@ -1179,6 +1756,4 @@ void CGraphics::ToggleWireframe()
 	{
 		mpD3D->EnableWireframeFill();
 	}
-
-	mWireframeEnabled = !mWireframeEnabled;
 }

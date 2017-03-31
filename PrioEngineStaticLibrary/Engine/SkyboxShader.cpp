@@ -7,7 +7,6 @@ CSkyboxShader::CSkyboxShader()
 	mpVertexShader = nullptr;
 	mpPixelShader = nullptr;
 	mpLayout = nullptr;
-	mpMatrixBuffer = nullptr;
 	mpGradientBuffer = nullptr;
 }
 
@@ -35,12 +34,12 @@ void CSkyboxShader::Shutdown()
 	ShutdownShader();
 }
 
-bool CSkyboxShader::Render(ID3D11DeviceContext* deviceContext, int indexCount, D3DXMATRIX world, D3DXMATRIX view, D3DXMATRIX proj, D3DXVECTOR4 apexColour, D3DXVECTOR4 centreColour)
+bool CSkyboxShader::Render(ID3D11DeviceContext* deviceContext, int indexCount, D3DXVECTOR4 apexColour, D3DXVECTOR4 centreColour)
 {
 	bool result;
 
 	// Set the parameters which will be used for rendering.
-	result = SetShaderParameters(deviceContext, world, view, proj, apexColour, centreColour);
+	result = SetShaderParameters(deviceContext, apexColour, centreColour);
 	if (!result)
 	{
 		return false;
@@ -150,20 +149,9 @@ bool CSkyboxShader::InitialiseShader(ID3D11Device * device, HWND hwnd, std::stri
 	pixelShaderBuffer->Release();
 	pixelShaderBuffer = nullptr;
 
-	// Setup the description of the dynamic matrix constant buffer that is in the vertex shader.
-	matrixBufferDesc.Usage = D3D11_USAGE_DYNAMIC;
-	matrixBufferDesc.ByteWidth = sizeof(MatrixBufferType);
-	matrixBufferDesc.BindFlags = D3D11_BIND_CONSTANT_BUFFER;
-	matrixBufferDesc.CPUAccessFlags = D3D11_CPU_ACCESS_WRITE;
-	matrixBufferDesc.MiscFlags = 0;
-	matrixBufferDesc.StructureByteStride = 0;
-
-	// Create the constant buffer pointer so we can access the vertex shader constant buffer from within this class.
-	result = device->CreateBuffer(&matrixBufferDesc, NULL, &mpMatrixBuffer);
-
-	if (FAILED(result))
+	if (!SetupMatrixBuffer(device))
 	{
-		logger->GetInstance().WriteLine("Failed to create the buffer pointer to access the vertex shader from within the sky dome shader class.");
+		logger->GetInstance().WriteLine("Failed to set up matrix buffer in skybox shader class.");
 		return false;
 	}
 
@@ -193,12 +181,6 @@ void CSkyboxShader::ShutdownShader()
 	{
 		mpGradientBuffer->Release();
 		mpGradientBuffer = nullptr;
-	}
-
-	if (mpMatrixBuffer)
-	{
-		mpMatrixBuffer->Release();
-		mpMatrixBuffer = nullptr;
 	}
 
 	if (mpLayout)
@@ -250,37 +232,20 @@ void CSkyboxShader::OutputShaderErrorMessage(ID3D10Blob * errorMessage, HWND hwn
 	MessageBox(hwnd, "Error compiling shader. Check logs for a detailed error message.", shaderFilename.c_str(), MB_OK);
 }
 
-bool CSkyboxShader::SetShaderParameters(ID3D11DeviceContext* deviceContext, D3DXMATRIX world, D3DXMATRIX view, D3DXMATRIX proj, D3DXVECTOR4 apexColour, D3DXVECTOR4 centreColour)
+bool CSkyboxShader::SetShaderParameters(ID3D11DeviceContext* deviceContext, D3DXVECTOR4 apexColour, D3DXVECTOR4 centreColour)
 {
 	HRESULT result;
 	D3D11_MAPPED_SUBRESOURCE mappedResource;
-	MatrixBufferType* dataPtr;
 	GradientBufferType* dataPtr2;
 	unsigned int bufferNumber;
 
-	D3DXMatrixTranspose(&world, &world);
-	D3DXMatrixTranspose(&view, &view);
-	D3DXMatrixTranspose(&proj, &proj);
-
-	result = deviceContext->Map(mpMatrixBuffer, 0, D3D11_MAP_WRITE_DISCARD, 0, &mappedResource);
-	if (FAILED(result))
-	{
-		return false;
-	}
-
-	dataPtr = (MatrixBufferType*)mappedResource.pData;
-
-	dataPtr->world = world;
-	dataPtr->view = view;
-	dataPtr->proj = proj;
-
-	deviceContext->Unmap(mpMatrixBuffer, 0);
-
 	bufferNumber = 0;
 
-	deviceContext->VSSetConstantBuffers(bufferNumber, 1, &mpMatrixBuffer);
-
-
+	if (!SetMatrixBuffer(deviceContext, bufferNumber, ShaderType::Vertex))
+	{
+		logger->GetInstance().WriteLine("Failed to set the matrix buffer in skybox refract shader.");
+		return false;
+	}
 
 	result = deviceContext->Map(mpGradientBuffer, 0, D3D11_MAP_WRITE_DISCARD, 0, &mappedResource);
 	if (FAILED(result))

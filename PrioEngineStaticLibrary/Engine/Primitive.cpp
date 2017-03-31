@@ -227,21 +227,3 @@ bool CPrimitive::UseDiffuseLight()
 	return mUseDiffuseLighting;
 }
 
-void CPrimitive::UpdateMatrices(D3DXMATRIX& world)
-{
-	D3DXMATRIX modelWorld;
-	// Define three matrices to hold x, y and z rotations.
-	D3DXMATRIX rotX;
-	D3DXMATRIX rotY;
-	D3DXMATRIX rotZ;
-
-	D3DXMatrixTranslation(&modelWorld, GetPosX(), GetPosY(), GetPosZ());
-
-	// Use Direct X to rotate the matrices and pass the matrix after rotation back into the rotation matrix we defined.
-	D3DXMatrixRotationX(&rotX, GetRotationX());
-	D3DXMatrixRotationY(&rotY, GetRotationY());
-	D3DXMatrixRotationZ(&rotZ, GetRotationZ());
-	world = modelWorld * rotX * rotY * rotZ;
-}
-
-

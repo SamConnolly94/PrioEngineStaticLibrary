@@ -1,7 +1,5 @@
 #include "Frustum.h"
 
-
-
 CFrustum::CFrustum()
 {
 }
@@ -68,12 +66,26 @@ void CFrustum::ConstructFrustum(float farClip, D3DXMATRIX projMatrix, D3DXMATRIX
 
 bool CFrustum::CheckPoint(float x, float y, float z)
 {
-	for (int i = 0; i < 6; i++)
+	for (int i = 0; i < kNumberOfPlanes; i++)
 	{
 		// If coordinates are outside our frustum planes.
 		if (D3DXPlaneDotCoord(&mPlanes[i], &D3DXVECTOR3(x, y, z)) < 0.0f)
 		{
 			// Don't need to render this one.
+			return false;
+		}
+	}
+
+	// Success!
+	return true;
+}
+
+bool CFrustum::CheckSphere(D3DXVECTOR3 position, float radius)
+{
+	for (int i = 0; i < kNumberOfPlanes; i++)
+	{
+		if (mPlanes[i].a * position.x + mPlanes[i].b * position.y + mPlanes[i].c * position.z + mPlanes[i].d <= -radius)
+		{
 			return false;
 		}
 	}

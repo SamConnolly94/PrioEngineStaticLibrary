@@ -7,7 +7,7 @@
 #include "ModelControl.h"
 #include "Texture.h"
 #include "Mesh.h"
-
+#include "Water.h"
 #include <vector>
 #include <sstream>
 #include "PrioEngineVars.h"
@@ -33,7 +33,7 @@ private:
 	};
 
 public:
-	CTerrain(ID3D11Device* device);
+	CTerrain(ID3D11Device* device, int screenWidth, int screenHeight);
 	~CTerrain();
 private:
 	void ReleaseHeightMap();
@@ -45,15 +45,18 @@ private:
 	const unsigned int kNumberOfRockTextures = 2;
 	float mLowestPoint;
 	float mHighestPoint;
+	CTexture* mpPatchMap;
 public:
 	bool CreateTerrain(ID3D11Device* device);
 	void Render(ID3D11DeviceContext* context);
+	void Update(float updateTime);
 	CTexture** GetTexturesArray();
 	CTexture** GetGrassTextureArray();
 	CTexture** GetRockTextureArray();
 	unsigned int GetNumberOfTextures() { return kmNumberOfTextures; };
 	unsigned int GetNumberOfGrassTextures();
 	unsigned int GetNumberOfRockTextures();
+	CTexture* GetPatchMap() { return mpPatchMap; };
 private:
 	bool InitialiseBuffers(ID3D11Device* device);
 	void ShutdownBuffers();
@@ -92,21 +95,19 @@ public:
 	bool LoadHeightMapFromFile(std::string filename);
 	bool UpdateBuffers(ID3D11Device* device, ID3D11DeviceContext* deviceContext, double** heightMap, int newWidth, int newHeight);
 // Update functions.
-public:
-	void UpdateMatrices(D3DXMATRIX& world);
 private:
 	struct TerrainEntityType
 	{
 		D3DXVECTOR3 position;
-		float rotation;
+		D3DXVECTOR3 rotation;
 		float scale;
 	};
 	std::vector<TerrainEntityType> mTreesInfo;
 	std::vector<TerrainEntityType> mPlantsInfo;
 	bool PositionTreeHere();
-	bool CreateTree(D3DXVECTOR3 position);
+	bool CreateTree(D3DXVECTOR3 position, D3DXVECTOR3 normal);
 	bool PositionPlantHere();
-	bool CreatePlant(D3DXVECTOR3 position);
+	bool CreatePlant(D3DXVECTOR3 position, D3DXVECTOR3 normal);
 	CTerrain::VertexAreaType FindAreaType(float height);
 public:
 	std::vector<TerrainEntityType> GetTreeInformation() { return mTreesInfo; };
@@ -121,6 +122,14 @@ public:
 	float GetGrassHeight() { return mGrassHeight; };
 	float GetSandHeight() { return mSandHeight; };
 	float GetDirtHeight() { return mDirtHeight; };
+	CWater* GetWater() { return mpWater; };
+private:
+	CWater* mpWater;
+	int mScreenWidth;
+	int mScreenHeight;
+	bool mUpdating = false;
+public:
+	bool GetUpdateFlag() { return mUpdating; };
 };
 
 #endif

@@ -39,8 +39,9 @@ void CMesh::Shutdown()
 }
 
 /* Load data from file into our mesh object. */
-bool CMesh::LoadMesh(std::string filename)
+bool CMesh::LoadMesh(std::string filename, float modelRadius)
 {
+	mRadius = modelRadius;
 	// If no file name was passed in, then output an error into the log and return false.
 	if (filename.empty() || filename == "")
 	{
@@ -56,28 +57,35 @@ bool CMesh::LoadMesh(std::string filename)
 	return result;
 }
 
-void CMesh::Render(ID3D11DeviceContext* context, CDiffuseLightShader* shader, D3DXMATRIX &view, D3DXMATRIX &proj, std::list<CLight*>lights)
+void CMesh::Render(ID3D11DeviceContext* context, CFrustum* frustum, CDiffuseLightShader* shader, CLight* light)
 {
 	for (auto model : mpModels)
 	{
 		model->UpdateMatrices();
+		bool inFrustum = true;
+		inFrustum = frustum->CheckSphere(model->GetPos(), model->GetScaleRadius(mRadius));
 
-		for (unsigned int subMeshCount = 0; subMeshCount < mNumberOfSubMeshes; subMeshCount++)
+		if (inFrustum)
 		{
-			// Prepare the buffers for rendering.
-			model->RenderBuffers(context, subMeshCount, mpSubMeshes[subMeshCount].vertexBuffer, mpSubMeshes[subMeshCount].indexBuffer, sizeof(VertexType) );
 
-			// Get the textures.
-
-			bool useAlpha = mSubMeshMaterials[mpSubMeshes[subMeshCount].materialIndex].mTextures[1] != NULL? true : false;
-			bool useSpecular = mSubMeshMaterials[mpSubMeshes[subMeshCount].materialIndex].mTextures[2] != NULL ? true : false;
-			shader->UpdateMapBuffer(context, useAlpha, useSpecular);
-
-			for (auto light : lights)
+			for (unsigned int subMeshCount = 0; subMeshCount < mNumberOfSubMeshes; subMeshCount++)
 			{
+				// Prepare the buffers for rendering.
+				model->RenderBuffers(context, subMeshCount, mpSubMeshes[subMeshCount].vertexBuffer, mpSubMeshes[subMeshCount].indexBuffer, sizeof(VertexType));
+
+				// Get the textures.
+
+				bool useAlpha = mSubMeshMaterials[mpSubMeshes[subMeshCount].materialIndex].mTextures[1] != NULL ? true : false;
+				bool useSpecular = mSubMeshMaterials[mpSubMeshes[subMeshCount].materialIndex].mTextures[2] != NULL ? true : false;
+				shader->UpdateMapBuffer(context, useAlpha, useSpecular);
+				
+				//shader->SetViewMatrix(view);
+				//shader->SetProjMatrix(proj);
+				//shader->SetViewMatrix(view * proj);
+				shader->SetWorldMatrix(model->GetWorldMatrix());
+
 				// Pass over the textures for rendering.
 				if (!shader->Render(context, mpSubMeshes[subMeshCount].numberOfIndices,
-					model->GetWorldMatrix(), view, proj,
 					mSubMeshMaterials[mpSubMeshes[subMeshCount].materialIndex].mTextures, mNumberOfTextures,
 					light->GetDirection(), light->GetDiffuseColour(), light->GetAmbientColour()))
 				{
@@ -115,8 +123,6 @@ CModel* CMesh::CreateModel()
 @Returns bool Success*/
 bool CMesh::LoadAssimpModel(std::string filename)
 {
-	// Grab the mesh object for the last mesh we loaded.
-
 	Assimp::Importer importer;
 	const std::string name = filename;
 	logger->GetInstance().WriteLine("Attempting to open " + name + " using Assimp.");
@@ -307,7 +313,7 @@ bool CMesh::CreateSubmesh(const aiMesh& mesh, SubMesh* subMesh)
 
 	if (FAILED(result))
 	{
-		logger->WriteLine("Failed to create the vertex buffer for mesh.");
+		logger->GetInstance().WriteLine("Failed to create the vertex buffer for mesh.");
 		return false;
 	}
 
@@ -322,7 +328,7 @@ bool CMesh::CreateSubmesh(const aiMesh& mesh, SubMesh* subMesh)
 	result = mpDevice->CreateBuffer(&bufferDesc, &initData, &subMesh->indexBuffer);
 	if (FAILED(result))
 	{
-		logger->WriteLine("Failed to create the vertex buffer for mesh.");
+		logger->GetInstance().WriteLine("Failed to create the vertex buffer for mesh.");
 		return false;
 	}
 

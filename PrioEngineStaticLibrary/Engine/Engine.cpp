@@ -8,12 +8,7 @@ CEngine::CEngine()
 	mTimer = new CGameTimer();
 	logger->GetInstance().MemoryAllocWriteLine(typeid(mTimer).name());
 	mStopped = false;
-	for (int i = 0; i < 256; i++)
-	{
-		mKeyRecentlyHit[i] = false;
-	}
-	mTimeSinceLastKeyPress = 0.0f;
-	mWireframeEnabled = false;
+	mFrameTime = 0.0f;
 }
 
 /* Default destructor. */
@@ -22,7 +17,7 @@ CEngine::~CEngine()
 }
 
 /* Initialise our engine. */
-bool CEngine::Initialise()
+bool CEngine::Initialise(std::string windowName)
 {
 	// The width we have to work with on our monitor.
 	int screenWidth = 0;
@@ -36,7 +31,7 @@ bool CEngine::Initialise()
 	mpGraphics = new CGraphics();
 
 	// Initialise the windows API.
-	InitialiseWindows(screenWidth, screenHeight);
+	InitialiseWindows(windowName, screenWidth, screenHeight);
 
 	// Initialise the input object. Used to read any input through keyboard or mouse from a user.
 	mpInput = new CInput();
@@ -146,7 +141,7 @@ bool CEngine::IsRunning()
 	if (mIsRunning)
 	{
 		// Attempt to process the current frame.
-		result = Frame();
+		bool result = Frame();
 
 		// If we failed to process the current frame then quit, something has gone wrong!
 		if (!result)
@@ -202,7 +197,7 @@ bool CEngine::Frame()
 	bool result;
 
 	// Process graphics for this frame;
-	result = mpGraphics->Frame();
+	result = mpGraphics->Frame(mFrameTime);
 	if (!result)
 	{
 		logger->GetInstance().WriteLine("Failed to process the graphics for this frame. ");
@@ -213,7 +208,7 @@ bool CEngine::Frame()
 }
 
 /* Initialise the window and engine ready for us to use DirectX. */
-void CEngine::InitialiseWindows(int& screenWidth, int& screenHeight)
+void CEngine::InitialiseWindows(std::string windowName, int& screenWidth, int& screenHeight)
 {
 	WNDCLASSEX wc;
 	DEVMODE dmScreenSettings;
@@ -226,7 +221,7 @@ void CEngine::InitialiseWindows(int& screenWidth, int& screenHeight)
 	mHinstance = GetModuleHandle(NULL);
 
 	// Give the application a name.
-	mApplicationName = "Prio-Engine";
+	mApplicationName = windowName.c_str();
 
 	// Setup the window class with the default settings.
 	wc.style = CS_HREDRAW | CS_VREDRAW | CS_OWNDC;
@@ -389,12 +384,6 @@ void CEngine::StartTimer()
 	mTimer->Start();
 }
 
-/* Creates a camera which we will use to view the world from. */
-CCamera* CEngine::CreateCamera()
-{
-	return mpGraphics->CreateCamera();
-}
-
 void CEngine::ToggleWireframe()
 {
 	mpGraphics->ToggleWireframe();
@@ -413,6 +402,56 @@ bool CEngine::UpdateText(SentenceType *& sentence, std::string text, int posX, i
 bool CEngine::RemoveText(SentenceType *& sentence)
 {
 	return mpGraphics->RemoveSentence(sentence);
+}
+
+void CEngine::DisableAutomaticSkyboxChange()
+{
+	mpGraphics->EnableTimeBasedSkybox(false);
+}
+
+void CEngine::EnableAutomaticSkyboxChange()
+{
+	mpGraphics->EnableTimeBasedSkybox(true);
+}
+
+void CEngine::SetSkyboxChangeInterval(float interval)
+{
+	mpGraphics->SetSkyboxUpdateInterval(interval);
+}
+
+float CEngine::GetSkyboxChangeInterval()
+{
+	return mpGraphics->GetSkyboxUpdateInterval();
+}
+
+void CEngine::SetDayTime()
+{
+	mpGraphics->SetDayTime();
+}
+
+void CEngine::SetNightTime()
+{
+	mpGraphics->SetNightTime();
+}
+
+void CEngine::SetEveningTime()
+{
+	mpGraphics->SetEveningTime();
+}
+
+bool CEngine::IsDayTime()
+{
+	return mpGraphics->IsDayTime();
+}
+
+bool CEngine::IsNightTime()
+{
+	return mpGraphics->IsNightTime();
+}
+
+bool CEngine::IsEveningTime()
+{
+	return mpGraphics->IsEveningTime();
 }
 
 /* Detects if a key has been pressed once. 
@@ -457,9 +496,24 @@ bool CEngine::UpdateTerrainBuffers(CTerrain *& terrain, double ** heightmap, int
 	return mpGraphics->UpdateTerrainBuffers(terrain, heightmap, width, height);
 }
 
+void CEngine::RemoveScenery()
+{
+	std::vector<CMesh*>::iterator it = mpListOfTreeMeshes.begin();
+
+	while (it != mpListOfTreeMeshes.end())
+	{
+		mpGraphics->RemoveMesh(*it);
+		it++;
+	}
+
+	mpListOfTreeMeshes.clear();
+}
+
 bool CEngine::ToggleFullscreen( unsigned int fullscreenKey)
 {
+	// There's an issue when we change to/from fullscreen where we don't register if a key is released, so force release it now to stop it crashing.
 	mpInput->KeyUp(fullscreenKey);
+	// Toggle full screen.
 	return mpGraphics->SetFullscreen(!mpGraphics->IsFullscreen());
 }
 
@@ -469,59 +523,71 @@ CPrimitive* CEngine::CreatePrimitive(std::string textureFilename, PrioEngine::Pr
 	return mpGraphics->CreatePrimitive(textureFilename, shape);
 }
 
-/* Creates an instance of a light object which is managed by the engine.
-@Returns CLight* */
-//CLight * CEngine::CreateLight(D3DXVECTOR4 diffuseColour, D3DXVECTOR4 ambientColour)
-//{
-//	return mpGraphics->CreateLight(diffuseColour, ambientColour);
-//}
-
-//bool CEngine::RemoveLight(CLight *& light)
-//{
-//	return mpGraphics->RemoveLight(light);
-//}
-
 CTerrain * CEngine::CreateTerrain(std::string mapFile)
 {
 	CTerrain* terrainPtr = mpGraphics->CreateTerrain(mapFile);
-
-	if (terrainPtr != nullptr)
-	{
-		CMesh* treeMesh = LoadMesh("Resources/Models/firtree3.3ds");
-
-		for (auto treeInfo : terrainPtr->GetTreeInformation())
-		{
-			CModel* tree = treeMesh->CreateModel();
-
-			tree->SetPos(treeInfo.position.x, treeInfo.position.y, treeInfo.position.z);
-			tree->SetRotationX(90.0f);
-			tree->SetRotationY(treeInfo.rotation);
-			tree->SetScale(treeInfo.scale);
-		}
-
-
-		CMesh* plantMeshes = LoadMesh("Resources/Models/Bushes/LS13_01.3ds");
-
-
-		for (auto plantInfo : terrainPtr->GetPlantInformation())
-		{
-			CModel* plant = plantMeshes->CreateModel();
-
-			plant->SetPos(plantInfo.position.x, plantInfo.position.y, plantInfo.position.z);
-			plant->SetRotationY(plantInfo.rotation);
-			plant->SetRotationX(90.0f);
-			plant->SetScale(plantInfo.scale);
-		}
-	}
-
+	AddSceneryToTerrain(terrainPtr);
 	return terrainPtr;
 }
 
 CTerrain * CEngine::CreateTerrain(double ** heightMap, int mapWidth, int mapHeight)
 {
 	CTerrain* terrainPtr = mpGraphics->CreateTerrain(heightMap, mapWidth, mapHeight);
-
+	AddSceneryToTerrain(terrainPtr);
 	return terrainPtr;
+}
+
+bool CEngine::AddSceneryToTerrain(CTerrain* terrainPtr)
+{
+	mpListOfTreeMeshes.clear();
+
+	if (terrainPtr != nullptr)
+	{
+		CMesh* treeMesh = LoadMesh("Resources/Models/firtree3.3ds", 2.0f);
+		mpListOfTreeMeshes.push_back(treeMesh);
+
+		for (auto treeInfo : terrainPtr->GetTreeInformation())
+		{
+			CModel* tree = treeMesh->CreateModel();
+
+			if (tree == nullptr)
+			{
+				logger->GetInstance().WriteLine("Failed to create the tree from the tree mesh.");
+				return false;
+			}
+
+			tree->SetPos(treeInfo.position.x, treeInfo.position.y, treeInfo.position.z);
+			tree->SetRotationX(90.0f);
+			tree->SetRotationY(treeInfo.rotation.y);
+			tree->SetScale(treeInfo.scale);
+		}
+
+
+		CMesh* plantMeshes = LoadMesh("Resources/Models/Bushes/LS13_01.3ds");
+		mpListOfTreeMeshes.push_back(plantMeshes);
+
+		for (auto plantInfo : terrainPtr->GetPlantInformation())
+		{
+			CModel* plant = plantMeshes->CreateModel();
+
+			if (plant == nullptr)
+			{
+				logger->GetInstance().WriteLine("Failed to create the plant from the plant mesh.");
+				return false;
+			}
+
+			plant->SetPos(plantInfo.position.x, plantInfo.position.y, plantInfo.position.z);
+			plant->SetRotationX(90.0f);
+			plant->SetRotationY(plantInfo.rotation.y);
+			plant->SetScale(plantInfo.scale);
+		}
+	}
+	else
+	{
+		return false;
+	}
+
+	return true;
 }
 
 bool CEngine::RemovePrimitive(CPrimitive * model)
@@ -535,9 +601,9 @@ bool CEngine::RemoveMesh(CMesh * mesh)
 	return mpGraphics->RemoveMesh(mesh);
 }
 
-CMesh* CEngine::LoadMesh(std::string filename)
+CMesh* CEngine::LoadMesh(std::string filename, float radius)
 {
-	return mpGraphics->LoadMesh(filename);
+	return mpGraphics->LoadMesh(filename, radius);
 }
 
 /* Create a primitive shape and place it in our world, may pass in diffuse lighting boolean to indicate wether it should be used. */

@@ -12,7 +12,7 @@ CSkyBox::~CSkyBox()
 {
 }
 
-bool CSkyBox::Initialise(ID3D11Device * device, D3DXVECTOR4 ambientColour)
+bool CSkyBox::Initialise(ID3D11Device * device)
 {
 	if (!LoadSkyBoxModel( "Resources/Models/Sphere.fbx"))
 	{
@@ -25,9 +25,13 @@ bool CSkyBox::Initialise(ID3D11Device * device, D3DXVECTOR4 ambientColour)
 		logger->GetInstance().WriteLine("Failed to initialise the buffers for skybox. ");
 		return false;
 	}
+	
+	mIsDayTime = true;
+	mIsNightTime = false;
+	mIsEveningTime = false;
 
-	mApexColour = D3DXVECTOR4{ 0.0f, 0.15f, 0.66f, 1.0f };
-	mCentreColour = ambientColour;
+	mApexColour = kDayApexColour;
+	mCentreColour = kDayCentreColour;
 
 	return true;
 }
@@ -78,6 +82,670 @@ void CSkyBox::RenderBuffers(ID3D11DeviceContext * deviceContext)
 
 }
 
+bool CSkyBox::IsDayTime()
+{
+	return mIsDayTime;
+}
+
+bool CSkyBox::IsEveningTime()
+{
+	return mIsEveningTime;
+}
+
+bool CSkyBox::IsNightTime()
+{
+	return mIsNightTime;
+}
+
+bool CSkyBox::UpdateTimeOfDay(float updateTime)
+{
+	// Daytime goes to evening
+	if (mIsDayTime)
+	{
+		if (UpdateToEvening(updateTime))
+		{
+			return true;
+		}
+	}
+	// If evening, want to go to night time next.
+	else if (mIsEveningTime)
+	{
+		if (UpdateToNight(updateTime))
+		{
+			return true;
+		}
+	}
+	// If night, want to go to daytime or morning time next.
+	else if (mIsNightTime)
+	{
+		if (UpdateToDay(updateTime))
+		{
+			return true;
+		}
+	}
+
+	return false;
+}
+
+bool CSkyBox::UpdateToEvening(float updateTime)
+{
+	////////////////////////
+	// Red greater than target
+	////////////////////////
+
+	// If the red of our apex colour is more than our target evening red 
+	if (mApexColour.x > kEveningApexColour.x)
+	{
+		// Reduce colour from red, will cause gradual change.
+		mApexColour.x -= kColourChangeModifier * updateTime;
+
+		// If the red of the apex colour has gone below our target.
+		if (mApexColour.x <= kEveningApexColour.x)
+		{
+			// Set the apex red to our target red.
+			mApexColour.x = kEveningApexColour.x;
+		}
+	}
+
+
+	// If the red of our apex colour is more than our target evening red 
+	if (mCentreColour.x > kEveningCentreColour.x)
+	{
+		// Reduce colour from red, will cause gradual change.
+		mCentreColour.x -= kColourChangeModifier * updateTime;
+
+		// If the red of the apex colour has gone below our target.
+		if (mCentreColour.x <= kEveningCentreColour.x)
+		{
+			// Set the apex red to our target red.
+			mCentreColour.x = kEveningCentreColour.x;
+		}
+	}
+
+	////////////////////////
+	// Red less than target
+	////////////////////////
+
+	// If the red of our apex colour is less than our target evening red 
+	if (mApexColour.x < kEveningApexColour.x)
+	{
+		// Increase red, will cause gradual change.
+		mApexColour.x += kColourChangeModifier * updateTime;
+
+		// If the red of the apex colour has gone below our target.
+		if (mApexColour.x >= kEveningApexColour.x)
+		{
+			// Set the apex red to our target red.
+			mApexColour.x = kEveningApexColour.x;
+		}
+	}
+
+	// If the red of our apex colour is less than our target evening red 
+	if (mCentreColour.x < kEveningCentreColour.x)
+	{
+		// Increase red, will cause gradual change.
+		mCentreColour.x += kColourChangeModifier * updateTime;
+
+		// If the red of the apex colour has gone below our target.
+		if (mCentreColour.x >= kEveningCentreColour.x)
+		{
+			// Set the apex red to our target red.
+			mCentreColour.x = kEveningCentreColour.x;
+		}
+	}
+
+	////////////////////////
+	// Green greater than target
+	////////////////////////
+
+	// If the green of our apex colour is more than our target evening green 
+	if (mApexColour.y > kEveningApexColour.y)
+	{
+		// Reduce colour from green, will cause gradual change.
+		mApexColour.y -= kColourChangeModifier * updateTime;
+
+		// If the green of the apex colour has gone below our target.
+		if (mApexColour.y <= kEveningApexColour.y)
+		{
+			// Set the apex green to our target green.
+			mApexColour.y = kEveningApexColour.y;
+		}
+	}
+
+	// If the green of our apex colour is more than our target evening green 
+	if (mCentreColour.y > kEveningCentreColour.y)
+	{
+		// Reduce colour from green, will cause gradual change.
+		mCentreColour.y -= kColourChangeModifier * updateTime;
+
+		// If the green of the apex colour has gone below our target.
+		if (mCentreColour.y <= kEveningCentreColour.y)
+		{
+			// Set the apex green to our target green.
+			mCentreColour.y = kEveningCentreColour.y;
+		}
+	}
+
+	////////////////////////
+	// Green less than target
+	////////////////////////
+
+	// If the green of our apex colour is less than our target evening green 
+	if (mApexColour.y < kEveningApexColour.y)
+	{
+		// Increase green, will cause gradual change.
+		mApexColour.y += kColourChangeModifier * updateTime;
+
+		// If the green of the apex colour has gone below our target.
+		if (mApexColour.y >= kEveningApexColour.y)
+		{
+			// Set the apex green to our target green.
+			mApexColour.y = kEveningApexColour.y;
+		}
+	}
+
+	// If the green of our apex colour is less than our target evening green 
+	if (mCentreColour.y < kEveningCentreColour.y)
+	{
+		// Increase green, will cause gradual change.
+		mCentreColour.y += kColourChangeModifier * updateTime;
+
+		// If the green of the apex colour has gone below our target.
+		if (mCentreColour.y >= kEveningCentreColour.y)
+		{
+			// Set the apex green to our target green.
+			mCentreColour.y = kEveningCentreColour.y;
+		}
+	}
+
+	////////////////////////
+	// blue greater than target
+	////////////////////////
+
+	// If the blue of our apex colour is more than our target evening blue 
+	if (mApexColour.z > kEveningApexColour.z)
+	{
+		// Reduce colour from blue, will cause gradual change.
+		mApexColour.z -= kColourChangeModifier * updateTime;
+
+		// If the blue of the apex colour has gone below our target.
+		if (mApexColour.z <= kEveningApexColour.z)
+		{
+			// Set the apex blue to our target blue.
+			mApexColour.z = kEveningApexColour.z;
+		}
+	}
+
+	// If the blue of our apex colour is more than our target evening blue 
+	if (mCentreColour.z > kEveningCentreColour.z)
+	{
+		// Reduce colour from blue, will cause gradual change.
+		mCentreColour.z -= kColourChangeModifier * updateTime;
+
+		// If the blue of the apex colour has gone below our target.
+		if (mCentreColour.z <= kEveningCentreColour.z)
+		{
+			// Set the apex blue to our target blue.
+			mCentreColour.z = kEveningCentreColour.z;
+		}
+	}
+
+	////////////////////////
+	// blue less than target
+	////////////////////////
+
+	// If the blue of our apex colour is less than our target evening blue 
+	if (mApexColour.z < kEveningApexColour.z)
+	{
+		// Increase blue, will cause gradual change.
+		mApexColour.z += kColourChangeModifier * updateTime;
+
+		// If the blue of the apex colour has gone below our target.
+		if (mApexColour.z >= kEveningApexColour.z)
+		{
+			// Set the apex blue to our target blue.
+			mApexColour.z = kEveningApexColour.z;
+		}
+	}
+
+	// If the blue of our apex colour is less than our target evening blue 
+	if (mCentreColour.z < kEveningCentreColour.z)
+	{
+		// Increase blue, will cause gradual change.
+		mCentreColour.z += kColourChangeModifier * updateTime;
+
+		// If the blue of the apex colour has gone below our target.
+		if (mCentreColour.z >= kEveningCentreColour.z)
+		{
+			// Set the apex blue to our target blue.
+			mCentreColour.z = kEveningCentreColour.z;
+		}
+	}
+
+	if (mCentreColour == kEveningCentreColour && mApexColour == kEveningApexColour)
+	{
+		mIsDayTime = false;
+		mIsEveningTime = true;
+		mIsNightTime = false;
+		return true;
+	}
+
+	return false;
+}
+
+bool CSkyBox::UpdateToNight(float updateTime)
+{
+	////////////////////////
+	// Red greater than target
+	////////////////////////
+
+	// If the red of our apex colour is more than our target evening red 
+	if (mApexColour.x > kNightApexColour.x)
+	{
+		// Reduce colour from red, will cause gradual change.
+		mApexColour.x -= kColourChangeModifier * updateTime;
+
+		// If the red of the apex colour has gone below our target.
+		if (mApexColour.x <= kNightApexColour.x)
+		{
+			// Set the apex red to our target red.
+			mApexColour.x = kNightApexColour.x;
+		}
+	}
+
+
+	// If the red of our apex colour is more than our target evening red 
+	if (mCentreColour.x > kNightCentreColour.x)
+	{
+		// Reduce colour from red, will cause gradual change.
+		mCentreColour.x -= kColourChangeModifier * updateTime;
+
+		// If the red of the apex colour has gone below our target.
+		if (mCentreColour.x <= kNightCentreColour.x)
+		{
+			// Set the apex red to our target red.
+			mCentreColour.x = kNightCentreColour.x;
+		}
+	}
+
+	////////////////////////
+	// Red less than target
+	////////////////////////
+
+	// If the red of our apex colour is less than our target evening red 
+	if (mApexColour.x < kNightApexColour.x)
+	{
+		// Increase red, will cause gradual change.
+		mApexColour.x += kColourChangeModifier * updateTime;
+
+		// If the red of the apex colour has gone below our target.
+		if (mApexColour.x >= kNightApexColour.x)
+		{
+			// Set the apex red to our target red.
+			mApexColour.x = kNightApexColour.x;
+		}
+	}
+
+	// If the red of our apex colour is less than our target evening red 
+	if (mCentreColour.x < kNightCentreColour.x)
+	{
+		// Increase red, will cause gradual change.
+		mCentreColour.x += kColourChangeModifier * updateTime;
+
+		// If the red of the apex colour has gone below our target.
+		if (mCentreColour.x >= kNightCentreColour.x)
+		{
+			// Set the apex red to our target red.
+			mCentreColour.x = kNightCentreColour.x;
+		}
+	}
+
+	////////////////////////
+	// Green greater than target
+	////////////////////////
+
+	// If the green of our apex colour is more than our target evening green 
+	if (mApexColour.y > kNightApexColour.y)
+	{
+		// Reduce colour from green, will cause gradual change.
+		mApexColour.y -= kColourChangeModifier * updateTime;
+
+		// If the green of the apex colour has gone below our target.
+		if (mApexColour.y <= kNightApexColour.y)
+		{
+			// Set the apex green to our target green.
+			mApexColour.y = kNightApexColour.y;
+		}
+	}
+
+	// If the green of our apex colour is more than our target evening green 
+	if (mCentreColour.y > kNightCentreColour.y)
+	{
+		// Reduce colour from green, will cause gradual change.
+		mCentreColour.y -= kColourChangeModifier * updateTime;
+
+		// If the green of the apex colour has gone below our target.
+		if (mCentreColour.y <= kNightCentreColour.y)
+		{
+			// Set the apex green to our target green.
+			mCentreColour.y = kNightCentreColour.y;
+		}
+	}
+
+	////////////////////////
+	// Green less than target
+	////////////////////////
+
+	// If the green of our apex colour is less than our target evening green 
+	if (mApexColour.y < kNightApexColour.y)
+	{
+		// Increase green, will cause gradual change.
+		mApexColour.y += kColourChangeModifier * updateTime;
+
+		// If the green of the apex colour has gone below our target.
+		if (mApexColour.y >= kNightApexColour.y)
+		{
+			// Set the apex green to our target green.
+			mApexColour.y = kNightApexColour.y;
+		}
+	}
+
+	// If the green of our apex colour is less than our target evening green 
+	if (mCentreColour.y < kNightCentreColour.y)
+	{
+		// Increase green, will cause gradual change.
+		mCentreColour.y += kColourChangeModifier * updateTime;
+
+		// If the green of the apex colour has gone below our target.
+		if (mCentreColour.y >= kNightCentreColour.y)
+		{
+			// Set the apex green to our target green.
+			mCentreColour.y = kNightCentreColour.y;
+		}
+	}
+
+	////////////////////////
+	// blue greater than target
+	////////////////////////
+
+	// If the blue of our apex colour is more than our target evening blue 
+	if (mApexColour.z > kNightApexColour.z)
+	{
+		// Reduce colour from blue, will cause gradual change.
+		mApexColour.z -= kColourChangeModifier * updateTime;
+
+		// If the blue of the apex colour has gone below our target.
+		if (mApexColour.z <= kNightApexColour.z)
+		{
+			// Set the apex blue to our target blue.
+			mApexColour.z = kNightApexColour.z;
+		}
+	}
+
+	// If the blue of our apex colour is more than our target evening blue 
+	if (mCentreColour.z > kNightCentreColour.z)
+	{
+		// Reduce colour from blue, will cause gradual change.
+		mCentreColour.z -= kColourChangeModifier * updateTime;
+
+		// If the blue of the apex colour has gone below our target.
+		if (mCentreColour.z <= kNightCentreColour.z)
+		{
+			// Set the apex blue to our target blue.
+			mCentreColour.z = kNightCentreColour.z;
+		}
+	}
+
+	////////////////////////
+	// blue less than target
+	////////////////////////
+
+	// If the blue of our apex colour is less than our target evening blue 
+	if (mApexColour.z < kNightApexColour.z)
+	{
+		// Increase blue, will cause gradual change.
+		mApexColour.z += kColourChangeModifier * updateTime;
+
+		// If the blue of the apex colour has gone below our target.
+		if (mApexColour.z >= kNightApexColour.z)
+		{
+			// Set the apex blue to our target blue.
+			mApexColour.z = kNightApexColour.z;
+		}
+	}
+
+	// If the blue of our apex colour is less than our target evening blue 
+	if (mCentreColour.z < kNightCentreColour.z)
+	{
+		// Increase blue, will cause gradual change.
+		mCentreColour.z += kColourChangeModifier * updateTime;
+
+		// If the blue of the apex colour has gone below our target.
+		if (mCentreColour.z >= kNightCentreColour.z)
+		{
+			// Set the apex blue to our target blue.
+			mCentreColour.z = kNightCentreColour.z;
+		}
+	}
+
+	if (mCentreColour == kNightCentreColour && mApexColour == kNightApexColour)
+	{
+		mIsDayTime = false;
+		mIsEveningTime = false;
+		mIsNightTime = true;
+		return true;
+	}
+
+	return false;
+}
+
+bool CSkyBox::UpdateToDay(float updateTime)
+{
+
+	////////////////////////
+	// Red greater than target
+	////////////////////////
+
+	// If the red of our apex colour is more than our target evening red 
+	if (mApexColour.x > kDayApexColour.x)
+	{
+		// Reduce colour from red, will cause gradual change.
+		mApexColour.x -= kColourChangeModifier * updateTime;
+
+		// If the red of the apex colour has gone below our target.
+		if (mApexColour.x <= kDayApexColour.x)
+		{
+			// Set the apex red to our target red.
+			mApexColour.x = kDayApexColour.x;
+		}
+	}
+
+
+	// If the red of our apex colour is more than our target evening red 
+	if (mCentreColour.x > kDayCentreColour.x)
+	{
+		// Reduce colour from red, will cause gradual change.
+		mCentreColour.x -= kColourChangeModifier * updateTime;
+
+		// If the red of the apex colour has gone below our target.
+		if (mCentreColour.x <= kDayCentreColour.x)
+		{
+			// Set the apex red to our target red.
+			mCentreColour.x = kDayCentreColour.x;
+		}
+	}
+
+	////////////////////////
+	// Red less than target
+	////////////////////////
+
+	// If the red of our apex colour is less than our target evening red 
+	if (mApexColour.x < kDayApexColour.x)
+	{
+		// Increase red, will cause gradual change.
+		mApexColour.x += kColourChangeModifier * updateTime;
+
+		// If the red of the apex colour has gone below our target.
+		if (mApexColour.x >= kDayApexColour.x)
+		{
+			// Set the apex red to our target red.
+			mApexColour.x = kDayApexColour.x;
+		}
+	}
+
+	// If the red of our apex colour is less than our target evening red 
+	if (mCentreColour.x < kDayCentreColour.x)
+	{
+		// Increase red, will cause gradual change.
+		mCentreColour.x += kColourChangeModifier * updateTime;
+
+		// If the red of the apex colour has gone below our target.
+		if (mCentreColour.x >= kDayCentreColour.x)
+		{
+			// Set the apex red to our target red.
+			mCentreColour.x = kDayCentreColour.x;
+		}
+	}
+
+	////////////////////////
+	// Green greater than target
+	////////////////////////
+
+	// If the green of our apex colour is more than our target evening green 
+	if (mApexColour.y > kDayApexColour.y)
+	{
+		// Reduce colour from green, will cause gradual change.
+		mApexColour.y -= kColourChangeModifier * updateTime;
+
+		// If the green of the apex colour has gone below our target.
+		if (mApexColour.y <= kDayApexColour.y)
+		{
+			// Set the apex green to our target green.
+			mApexColour.y = kDayApexColour.y;
+		}
+	}
+
+	// If the green of our apex colour is more than our target evening green 
+	if (mCentreColour.y > kDayCentreColour.y)
+	{
+		// Reduce colour from green, will cause gradual change.
+		mCentreColour.y -= kColourChangeModifier * updateTime;
+
+		// If the green of the apex colour has gone below our target.
+		if (mCentreColour.y <= kDayCentreColour.y)
+		{
+			// Set the apex green to our target green.
+			mCentreColour.y = kDayCentreColour.y;
+		}
+	}
+
+	////////////////////////
+	// Green less than target
+	////////////////////////
+
+	// If the green of our apex colour is less than our target evening green 
+	if (mApexColour.y < kDayApexColour.y)
+	{
+		// Increase green, will cause gradual change.
+		mApexColour.y += kColourChangeModifier * updateTime;
+
+		// If the green of the apex colour has gone below our target.
+		if (mApexColour.y >= kDayApexColour.y)
+		{
+			// Set the apex green to our target green.
+			mApexColour.y = kDayApexColour.y;
+		}
+	}
+
+	// If the green of our apex colour is less than our target evening green 
+	if (mCentreColour.y < kDayCentreColour.y)
+	{
+		// Increase green, will cause gradual change.
+		mCentreColour.y += kColourChangeModifier * updateTime;
+
+		// If the green of the apex colour has gone below our target.
+		if (mCentreColour.y >= kDayCentreColour.y)
+		{
+			// Set the apex green to our target green.
+			mCentreColour.y = kDayCentreColour.y;
+		}
+	}
+
+	////////////////////////
+	// blue greater than target
+	////////////////////////
+
+	// If the blue of our apex colour is more than our target evening blue 
+	if (mApexColour.z > kDayApexColour.z)
+	{
+		// Reduce colour from blue, will cause gradual change.
+		mApexColour.z -= kColourChangeModifier * updateTime;
+
+		// If the blue of the apex colour has gone below our target.
+		if (mApexColour.z <= kDayApexColour.z)
+		{
+			// Set the apex blue to our target blue.
+			mApexColour.z = kDayApexColour.z;
+		}
+	}
+
+	// If the blue of our apex colour is more than our target evening blue 
+	if (mCentreColour.z > kDayCentreColour.z)
+	{
+		// Reduce colour from blue, will cause gradual change.
+		mCentreColour.z -= kColourChangeModifier * updateTime;
+
+		// If the blue of the apex colour has gone below our target.
+		if (mCentreColour.z <= kDayCentreColour.z)
+		{
+			// Set the apex blue to our target blue.
+			mCentreColour.z = kDayCentreColour.z;
+		}
+	}
+
+	////////////////////////
+	// blue less than target
+	////////////////////////
+
+	// If the blue of our apex colour is less than our target evening blue 
+	if (mApexColour.z < kDayApexColour.z)
+	{
+		// Increase blue, will cause gradual change.
+		mApexColour.z += kColourChangeModifier * updateTime;
+
+		// If the blue of the apex colour has gone below our target.
+		if (mApexColour.z >= kDayApexColour.z)
+		{
+			// Set the apex blue to our target blue.
+			mApexColour.z = kDayApexColour.z;
+		}
+	}
+
+	// If the blue of our apex colour is less than our target evening blue 
+	if (mCentreColour.z < kDayCentreColour.z)
+	{
+		// Increase blue, will cause gradual change.
+		mCentreColour.z += kColourChangeModifier * updateTime;
+
+		// If the blue of the apex colour has gone below our target.
+		if (mCentreColour.z >= kDayCentreColour.z)
+		{
+			// Set the apex blue to our target blue.
+			mCentreColour.z = kDayCentreColour.z;
+		}
+	}
+
+	if (mCentreColour == kDayCentreColour && mApexColour == kDayApexColour)
+	{
+		mIsDayTime = true;
+		mIsEveningTime = false;
+		mIsNightTime = false;
+		return true;
+	}
+
+	return false;
+}
+
 int CSkyBox::GetIndexCount()
 {
 	return mIndexCount;
@@ -88,7 +756,7 @@ D3DXVECTOR4 CSkyBox::GetApexColor()
 	return mApexColour;
 }
 
-D3DXVECTOR4 CSkyBox::GetCenterColor()
+D3DXVECTOR4 CSkyBox::GetCenterColour()
 {
 	return mCentreColour;
 }

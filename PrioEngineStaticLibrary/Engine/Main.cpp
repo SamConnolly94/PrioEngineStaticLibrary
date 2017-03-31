@@ -31,7 +31,7 @@ int WINAPI WinMain(HINSTANCE hInstance,	HINSTANCE hPrevInstance, LPSTR lpCmdLine
 	logger->GetInstance().MemoryAllocWriteLine(typeid(PrioEngine).name());
 
 	// Set up the engine.
-	result = PrioEngine->Initialise();
+	result = PrioEngine->Initialise("Prio Engine");
 	// If we successfully initialised the game engine
 	if (result)
 	{
@@ -71,8 +71,8 @@ void GameLoop(CEngine* &engine)
 
 	CTerrain* terrain = engine->CreateTerrain("Default.map");
 
-	//SentenceType* frametimeText = engine->CreateText("Frametime: ", frameTimePosX, frameTimePosY, 32);
-	//SentenceType* FPSText = engine->CreateText("FPS: ", static_cast<int>(FPSPosX), static_cast<int>(FPSPosY), 32);
+	SentenceType* frametimeText = engine->CreateText("Frametime: ", frameTimePosX, frameTimePosY, 32);
+	SentenceType* FPSText = engine->CreateText("FPS: ", static_cast<int>(FPSPosX), static_cast<int>(FPSPosY), 32);
 
 	// Start the game timer running.
 	engine->StartTimer();
@@ -92,8 +92,8 @@ void GameLoop(CEngine* &engine)
 		// Update the text on our game.
 		if (timeSinceTextUpdate >= kTextUpdateInterval)
 		{
-			//engine->UpdateText(frametimeText, "FrameTime: " + std::to_string(frameTime), frameTimePosX, frameTimePosY, { 1.0f, 1.0f, 0.0f });
-			//engine->UpdateText(FPSText, "FPS: " + std::to_string(1.0f / frameTime), static_cast<int>(FPSPosX), static_cast<int>(FPSPosY), { 1.0f, 1.0f, 0.0f });
+			engine->UpdateText(frametimeText, "FrameTime: " + std::to_string(frameTime), frameTimePosX, frameTimePosY, { 1.0f, 1.0f, 0.0f });
+			engine->UpdateText(FPSText, "FPS: " + std::to_string(1.0f / frameTime), static_cast<int>(FPSPosX), static_cast<int>(FPSPosY), { 1.0f, 1.0f, 0.0f });
 			timeSinceTextUpdate = 0.0f;
 		}
 		timeSinceTextUpdate += frameTime;
@@ -104,8 +104,7 @@ void GameLoop(CEngine* &engine)
 void Control(CEngine* &engine, CCamera* cam, CTerrain* grid, float frameTime)
 {
 	const float kMoveSpeed = 25.0f;
-	const float kRotationSpeed = 10.0f;
-	const float kCamRotationSpeed = 2.5f;
+	const float kCamRotationSpeed = 100.0f;
 	
 	/// Camera control.
 	// Move backwards

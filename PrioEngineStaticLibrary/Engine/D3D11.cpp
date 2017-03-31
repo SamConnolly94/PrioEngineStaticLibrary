@@ -6,6 +6,8 @@ CD3D11::CD3D11()
 	mpAlphaBlendingStateDisabled = nullptr;
 	mpAlphaBlendingStateEnabled = nullptr;	
 	mpRasterStateNoCulling = nullptr;
+	mpAdditiveAlphaBlendingStateEnabled = nullptr;
+	mpDepthState = nullptr;
 }
 
 
@@ -304,6 +306,7 @@ bool CD3D11::Initialise(int screenWidth, int screenHeight, bool vsync, HWND hwnd
 	 blendStateDesc.RenderTarget[0].BlendOpAlpha = D3D11_BLEND_OP_ADD;
 	 blendStateDesc.RenderTarget[0].RenderTargetWriteMask = 0x0f;
 
+
 	 result = mpDevice->CreateBlendState(&blendStateDesc, &mpAlphaBlendingStateEnabled);
 	 if (FAILED(result))
 	 {
@@ -320,6 +323,27 @@ bool CD3D11::Initialise(int screenWidth, int screenHeight, bool vsync, HWND hwnd
 		 logger->GetInstance().WriteLine("Failed to create the alpha blending state disabled from descriptor.");
 		 return false;
 	 }
+	 //////////////////////////////
+	 // Additive alpha blending.
+	 //////////////////////////////
+
+	 // Set up the descriptor for blend state. Look over second year notes if you've forgotten what this does.
+	 blendStateDesc.RenderTarget[0].BlendEnable = TRUE;
+	 blendStateDesc.RenderTarget[0].SrcBlend = D3D11_BLEND_ONE;
+	 blendStateDesc.RenderTarget[0].DestBlend = D3D11_BLEND_ONE;;
+	 blendStateDesc.RenderTarget[0].BlendOp = D3D11_BLEND_OP_ADD;
+	 blendStateDesc.RenderTarget[0].SrcBlendAlpha = D3D11_BLEND_ONE;
+	 blendStateDesc.RenderTarget[0].DestBlendAlpha = D3D11_BLEND_ZERO;
+	 blendStateDesc.RenderTarget[0].BlendOpAlpha = D3D11_BLEND_OP_ADD;
+	 blendStateDesc.RenderTarget[0].RenderTargetWriteMask = 0x0f;
+
+
+	 result = mpDevice->CreateBlendState(&blendStateDesc, &mpAdditiveAlphaBlendingStateEnabled);
+	 if (FAILED(result))
+	 {
+		 logger->GetInstance().WriteLine("Failed to create the additive alpha blending state enabled from descriptor.");
+		 return false;
+	 }
 
 	// Success! We have successfully setup DirectX.
 	return true;
@@ -329,6 +353,12 @@ bool CD3D11::Initialise(int screenWidth, int screenHeight, bool vsync, HWND hwnd
 void CD3D11::Shutdown()
 {
 	logger->GetInstance().WriteLine("DirectX Shutdown Function Initialised.");
+
+	if (mpDepthState != nullptr)
+	{
+		mpDepthState->Release();
+		mpDepthState = nullptr;
+	}
 
 	// If swap chain has been intialised.
 	if (mpSwapChain)
@@ -344,6 +374,12 @@ void CD3D11::Shutdown()
 	{
 		mpAlphaBlendingStateEnabled->Release();
 		mpAlphaBlendingStateEnabled = nullptr;
+	}
+
+	if (mpAdditiveAlphaBlendingStateEnabled)
+	{
+		mpAdditiveAlphaBlendingStateEnabled->Release();
+		mpAdditiveAlphaBlendingStateEnabled = nullptr;
 	}
 
 	// If blending state initialised.
@@ -404,6 +440,8 @@ void CD3D11::Shutdown()
 		mpRenderTargetView->Release();
 		mpRenderTargetView = nullptr;
 	}
+
+	TwTerminate();
 
 	// If device context has been initialised.
 	if (mpDeviceContext)
@@ -584,6 +622,13 @@ void CD3D11::DisableAlphaBlending()
 	mpDeviceContext->OMSetBlendState(mpAlphaBlendingStateDisabled, blendFactor, 0xffffffff);
 }
 
+void CD3D11::EnableAdditiveAlphaBlending()
+{
+	float blendFactor[4] = { 0.0f, 0.0f, 0.0f, 0.0f };
+
+	mpDeviceContext->OMSetBlendState(mpAdditiveAlphaBlendingStateEnabled, blendFactor, 0xffffffff);
+}
+
 void CD3D11::DisableZBuffer()
 {
 	// Create the stencil buffer from the descriptor.
@@ -675,7 +720,7 @@ bool CD3D11::CreateSwapChain(D3D_FEATURE_LEVEL & featureLevel, DXGI_SWAP_CHAIN_D
 	featureLevel = D3D_FEATURE_LEVEL_11_0;
 
 	// Create swap chain from the descriptor we have set.
-	HRESULT result = D3D11CreateDeviceAndSwapChain(NULL, D3D_DRIVER_TYPE_HARDWARE, NULL, 0, &featureLevel, 1,
+	HRESULT result = D3D11CreateDeviceAndSwapChain(NULL, D3D_DRIVER_TYPE_HARDWARE, NULL, NULL /*D3D11_CREATE_DEVICE_DEBUG*/, &featureLevel, 1,
 		D3D11_SDK_VERSION, &swapChainDesc, &mpSwapChain, &mpDevice, NULL, &mpDeviceContext);
 
 	// If we did not successfully create the device and swap chain.
@@ -747,6 +792,9 @@ bool CD3D11::CreateDepthStencilView(D3D11_DEPTH_STENCIL_VIEW_DESC& depthStencilV
 		// Stop!
 		return false;
 	}
+
+	ID3D11RenderTargetView* nullRenderTarget = nullptr;
+	GetDeviceContext()->OMSetRenderTargets(1, &nullRenderTarget, nullptr);
 
 	// Bind the render target view and depth stencil buffer to the output render pipeline.
 	mpDeviceContext->OMSetRenderTargets(1, &mpRenderTargetView, mpDepthStencilView);
@@ -895,6 +943,26 @@ void CD3D11::CreateProjMatrix(float screenDepth, float screenNear)
 	D3DXMatrixPerspectiveFovLH(&mProjectionMatrix, fieldOfView, screenAspect, screenNear, screenDepth);
 }
 
+void CD3D11::SetDepthState(bool depth, bool stencil, bool depthWrite)
+{
+	if (mpDepthState != nullptr)
+	{
+		mpDepthState->Release();
+		mpDepthState = nullptr;
+	}
+
+	D3D11_DEPTH_STENCIL_DESC depthStateDesc;
+
+	ZeroMemory(&depthStateDesc, sizeof(depthStateDesc));
+	depthStateDesc.DepthEnable = depth;
+	depthStateDesc.DepthFunc = D3D11_COMPARISON_LESS;
+	depthStateDesc.DepthWriteMask = depthWrite ? D3D11_DEPTH_WRITE_MASK_ALL : D3D11_DEPTH_WRITE_MASK_ZERO;
+	depthStateDesc.StencilEnable = stencil;
+	mpDevice->CreateDepthStencilState(&depthStateDesc, &mpDepthState);
+	mpDeviceContext->OMSetDepthStencilState(mpDepthState, 1);
+
+}
+
 bool CD3D11::ToggleFullscreen(bool fullscreenEnabled)
 {
 	HRESULT result;
@@ -917,4 +985,14 @@ void CD3D11::TurnOnBackFaceCulling()
 void CD3D11::TurnOffBackFaceCulling()
 {
 	mpDeviceContext->RSSetState(mpRasterStateNoCulling);
+}
+
+ID3D11DepthStencilView * CD3D11::GetDepthStencilView()
+{
+	return mpDepthStencilView;
+}
+
+void CD3D11::SetBackBufferRenderTarget()
+{
+	mpDeviceContext->OMSetRenderTargets(1, &mpRenderTargetView, mpDepthStencilView);
 }

@@ -7,7 +7,6 @@ CColourShader::CColourShader()
 	mpVertexShader = nullptr;
 	mpPixelShader = nullptr;
 	mpLayout = nullptr;
-	mpMatrixBuffer = nullptr;
 }
 
 CColourShader::~CColourShader()
@@ -33,12 +32,12 @@ void CColourShader::Shutdown()
 	ShutdownShader();
 }
 
-bool CColourShader::Render(ID3D11DeviceContext * deviceContext, int indexCount, D3DXMATRIX worldMatrix, D3DXMATRIX viewMatrix, D3DXMATRIX projMatrix)
+bool CColourShader::Render(ID3D11DeviceContext* deviceContext, int indexCount)
 {
 	bool result;
 
 	// Set the parameters which will be used for rendering.
-	result = SetShaderParameters(deviceContext, worldMatrix, viewMatrix, projMatrix);
+	result = SetShaderParameters(deviceContext);
 	if (!result)
 	{
 		return false;
@@ -58,7 +57,6 @@ bool CColourShader::InitialiseShader(ID3D11Device * device, HWND hwnd, std::stri
 	ID3D10Blob* pixelShaderBuffer;
 	D3D11_INPUT_ELEMENT_DESC polygonLayout[2];
 	unsigned int numElements;
-	D3D11_BUFFER_DESC matrixBufferDesc;
 
 	// Initialise pointers in this function to null.
 	errorMessage = nullptr;
@@ -154,37 +152,18 @@ bool CColourShader::InitialiseShader(ID3D11Device * device, HWND hwnd, std::stri
 	pixelShaderBuffer->Release();
 	pixelShaderBuffer = nullptr;
 
-	// Setup the description of the dynamic matrix constant buffer that is in the vertex shader.
-	matrixBufferDesc.Usage = D3D11_USAGE_DYNAMIC;
-	matrixBufferDesc.ByteWidth = sizeof(MatrixBufferType);
-	matrixBufferDesc.BindFlags = D3D11_BIND_CONSTANT_BUFFER;
-	matrixBufferDesc.CPUAccessFlags = D3D11_CPU_ACCESS_WRITE;
-	matrixBufferDesc.MiscFlags = 0;
-	matrixBufferDesc.StructureByteStride = 0;
-
-
-	// Create the constant buffer pointer so we can access the vertex shader constant buffer from within this class.
-	result = device->CreateBuffer(&matrixBufferDesc, NULL, &mpMatrixBuffer);
-
-	
-	if (FAILED(result))
+	if (!SetupMatrixBuffer(device))
 	{
-		logger->GetInstance().WriteLine("Failed to create the buffer pointer to access the vertex shader from within the Colour shader class.");
+		logger->GetInstance().WriteLine("Failed to create the matrix constant buffer from descriptor provided in colour shader class.");
 		return false;
 	}
+
 
 	return true;
 }
 
 void CColourShader::ShutdownShader()
 {
-	// Release the matrix constant buffer.
-	if (mpMatrixBuffer)
-	{
-		mpMatrixBuffer->Release();
-		mpMatrixBuffer = nullptr;
-	}
-
 	if (mpLayout)
 	{
 		mpLayout->Release();
@@ -233,42 +212,13 @@ void CColourShader::OutputShaderErrorMessage(ID3D10Blob * errorMessage, HWND hwn
 	MessageBox(hwnd, "Error compiling shader. Check logs for a detailed error message.", shaderFilename.c_str(), MB_OK);
 }
 
-bool CColourShader::SetShaderParameters(ID3D11DeviceContext * deviceContext, D3DXMATRIX worldMatrix, D3DXMATRIX viewMatrix, D3DXMATRIX projMatrix)
+bool CColourShader::SetShaderParameters(ID3D11DeviceContext* deviceContext)
 {
-	HRESULT result;
-	D3D11_MAPPED_SUBRESOURCE mappedResource;
-	MatrixBufferType* dataPtr;
-	unsigned int bufferNumber;
-
-	// Transpose the matrices so they are ready for the shader.
-	D3DXMatrixTranspose(&worldMatrix, &worldMatrix);
-	D3DXMatrixTranspose(&viewMatrix, &viewMatrix);
-	D3DXMatrixTranspose(&projMatrix, &projMatrix);
-
-	// Lock the constant buffer so it can be written to.
-	result = deviceContext->Map(mpMatrixBuffer, 0, D3D11_MAP_WRITE_DISCARD, 0, &mappedResource);
-	if (FAILED(result))
+	if (!SetMatrixBuffer(deviceContext, 0, ShaderType::Vertex))
 	{
-		logger->GetInstance().WriteLine("Failed to the lock the constant buffer so we could write to it in ColourShader.cpp.");
+		logger->GetInstance().WriteLine("Failed to set the matrix buffer in colour shader class");
 		return false;
 	}
-
-	// Get a pointer to the data in the constant buffer.
-	dataPtr = (MatrixBufferType*)mappedResource.pData;
-
-	// Copy the matrices into the constant buffer.
-	dataPtr->world = worldMatrix;
-	dataPtr->view = viewMatrix;
-	dataPtr->projection = projMatrix;
-
-	// Unlock the constant buffer.
-	deviceContext->Unmap(mpMatrixBuffer, 0);
-
-	// Set the position of the constant buffer in the vertex shader.
-	bufferNumber = 0;
-
-	// Set the constant buffer in the vertex shader with updated values.
-	deviceContext->VSSetConstantBuffers(bufferNumber, 1, &mpMatrixBuffer);
 
 	return true;
 }

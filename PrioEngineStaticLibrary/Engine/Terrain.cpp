@@ -1,9 +1,12 @@
 #include "Terrain.h"
 
-CTerrain::CTerrain(ID3D11Device* device)
+CTerrain::CTerrain(ID3D11Device* device, int screenWidth, int screenHeight)
 {
 	// Output alloc message to memory log.
 	logger->GetInstance().MemoryAllocWriteLine(typeid(this).name());
+
+	mScreenWidth = screenWidth;
+	mScreenHeight = screenHeight;
 
 	// Initialise pointers to nullptr.
 	mpVertexBuffer = nullptr;
@@ -28,6 +31,8 @@ CTerrain::CTerrain(ID3D11Device* device)
 	mpTextures[1] = new CTexture();
 	mpTextures[1]->Initialise(device, "Resources/Textures/Sand.dds");
 
+	mpPatchMap = new CTexture();
+	mpPatchMap->Initialise(device, "Resources/Patch Maps/PatchMap.png");
 
 	///////////////////////
 	// Grass textures
@@ -63,6 +68,8 @@ CTerrain::CTerrain(ID3D11Device* device)
 	{
 		logger->GetInstance().WriteLine("Failed to load 'Resources/Textures/LightRock.dds'.");
 	}
+
+	mpWater = nullptr;
 }
 
 
@@ -70,6 +77,12 @@ CTerrain::~CTerrain()
 {
 	// Output dealloc message to memory log.
 	logger->GetInstance().MemoryDeallocWriteLine(typeid(this).name());
+
+	if (mpPatchMap != nullptr)
+	{
+		mpPatchMap->Shutdown();
+		delete mpPatchMap;
+	}
 
 	for (unsigned int i = 0; i < kmNumberOfTextures; i++)
 	{
@@ -91,6 +104,12 @@ CTerrain::~CTerrain()
 	{
 		mpRockTextures[i]->Shutdown();
 		delete mpRockTextures[i];
+	}
+	
+	if (mpWater)
+	{
+		mpWater->Shutdown();
+		delete mpWater;
 	}
 
 	delete[] mpRockTextures;
@@ -141,6 +160,8 @@ bool CTerrain::CreateTerrain(ID3D11Device* device)
 		return false;
 	}
 
+
+
 	return true;
 }
 
@@ -149,6 +170,16 @@ void CTerrain::Render(ID3D11DeviceContext * context)
 {
 	// Render the data contained in the buffers..
 	RenderBuffers(context);
+}
+
+void CTerrain::Update(float updateTime)
+{
+	if (mpWater)
+	{
+		mpWater->SetYPos(GetPosY() +  mpWater->GetDepth());
+		mpWater->Update(updateTime);
+		mpWater->UpdateMatrices();
+	}
 }
 
 CTexture** CTerrain::GetTexturesArray()
@@ -235,10 +266,10 @@ bool CTerrain::InitialiseBuffers(ID3D11Device * device)
 	// Define the position in world space which we should decide on the terrain type.
 	const float changeInHeight = mHighestPoint - mLowestPoint;
 	float onePerc = changeInHeight / 100.0f;
-	mSnowHeight = mLowestPoint + (onePerc * 60);	// 60% and upwards will be snow.
-	mGrassHeight = mLowestPoint + (onePerc * 30);	// 30% and upwards will be grass.
-	mSandHeight = mLowestPoint + (onePerc * 10);	// 10% and upwards will be sand.
-	mDirtHeight = mLowestPoint + (onePerc * 15);	// 15% and upwards will be dirt.
+	mSnowHeight = mLowestPoint + (onePerc * 60) - mLowestPoint;	// 60% and upwards will be snow.
+	mGrassHeight = mLowestPoint + (onePerc * 30) - mLowestPoint;	// 30% and upwards will be grass.
+	mSandHeight = mLowestPoint + (onePerc * 10) - mLowestPoint;	// 10% and upwards will be sand.
+	mDirtHeight = mLowestPoint + (onePerc * 15) - mLowestPoint;	// 15% and upwards will be dirt.
 
 	/// Plot the vertices of the grid.
 	float U = 0.0f;
@@ -264,13 +295,6 @@ bool CTerrain::InitialiseBuffers(ID3D11Device * device)
 			{
 				// Set the position to a default of 0.0f.
 				vertices[vertex].position = D3DXVECTOR3{ posX, 0.0f, posZ };
-			}
-			CTerrain::VertexAreaType areaType = FindAreaType(vertices[vertex].position.y);
-
-			if (areaType == CTerrain::VertexAreaType::Grass)
-			{
-				CreateTree(vertices[vertex].position);
-				CreatePlant(vertices[vertex].position);
 			}
 
 			U = static_cast<float>(widthCount);
@@ -427,6 +451,24 @@ bool CTerrain::InitialiseBuffers(ID3D11Device * device)
 		}
 	}
 
+	vertex = 0;
+
+	for (int heightCount = 0; heightCount < mHeight; heightCount++)
+	{
+		for (int widthCount = 0; widthCount < mWidth; widthCount++)
+		{
+			CTerrain::VertexAreaType areaType = FindAreaType(vertices[vertex].position.y);
+
+			if (areaType == CTerrain::VertexAreaType::Grass)
+			{
+				CreateTree(vertices[vertex].position, vertices[vertex].normal);
+				CreatePlant(vertices[vertex].position, vertices[vertex].normal);
+			}
+
+			vertex++;
+		}
+	}
+
 	// Set up the descriptor of the static vertex buffer.
 	vertexBufferDesc.Usage = D3D11_USAGE_DEFAULT;
 	vertexBufferDesc.ByteWidth = sizeof(VertexType) * mVertexCount;
@@ -469,6 +511,7 @@ bool CTerrain::InitialiseBuffers(ID3D11Device * device)
 		return false;
 	}
 
+
 	// Clean up the memory allocated to arrays.
 	delete[] vertices;
 	logger->GetInstance().MemoryDeallocWriteLine(typeid(vertices).name());
@@ -477,6 +520,16 @@ bool CTerrain::InitialiseBuffers(ID3D11Device * device)
 	delete[] indices;
 	logger->GetInstance().MemoryDeallocWriteLine(typeid(indices).name());
 	indices = nullptr;
+
+	mpWater = new CWater();
+	if (!mpWater->Initialise(device, D3DXVECTOR3(0.0f, 0.0f, 0.0f), D3DXVECTOR3(mWidth - 1.0f, 0.0f, mHeight - 1.0f), 200, 200, "Resources/Textures/WaterNormalHeight.png", mScreenWidth, mScreenHeight))
+	{
+		logger->GetInstance().WriteLine("Failed to initialise the body of water.");
+		return false;
+	}
+
+	mpWater->SetXPos(GetPosX());
+	mpWater->SetZPos(GetPosY());
 
 	return true;
 }
@@ -590,8 +643,20 @@ void CTerrain::LoadHeightMap(double ** heightMap)
 		}
 	}
 
+	// Iterate through the height.
+	for (int y = 0; y < mHeight; y++)
+	{
+		// Iterate through the width.
+		for (int x = 0; x < mWidth; x++)
+		{
+			mpHeightMap[y][x] -= mLowestPoint;
+		}
+	}
+
+	// TODO: Put this back in.
 	// Adjust the Y position of the map model to be equal to the lowest point.
-	SetYPos(0.0f - mLowestPoint);
+	//SetYPos(0.0f - mLowestPoint);
+
 	// Set the X position to be half of the width.
 	SetXPos(0 - (static_cast<float>(mWidth) / 2.0f));
 
@@ -705,7 +770,16 @@ bool CTerrain::LoadHeightMapFromFile(std::string filename)
 	}
 
 	// Adjust the Y position of the map model to be equal to the lowest point.
-	SetYPos(0.0f - mLowestPoint);
+	//SetYPos(0.0f - mLowestPoint);
+	for (int y = 0; y < mHeight; y++)
+	{
+		// Iterate through the width.
+		for (int x = 0; x < mWidth; x++)
+		{
+			mpHeightMap[y][x] -= mLowestPoint;
+		}
+	}
+
 	// Set the X position to be half of the width.
 	SetXPos(0 - (static_cast<float>(mWidth) / 2.0f));
 
@@ -716,6 +790,8 @@ bool CTerrain::LoadHeightMapFromFile(std::string filename)
 
 bool CTerrain::UpdateBuffers(ID3D11Device * device, ID3D11DeviceContext* deviceContext, double ** heightMap, int newWidth, int newHeight)
 {
+	mUpdating = true;
+
 	if (mpHeightMap)
 	{
 		ReleaseHeightMap();
@@ -740,27 +816,20 @@ bool CTerrain::UpdateBuffers(ID3D11Device * device, ID3D11DeviceContext* deviceC
 		mpIndexBuffer = nullptr;
 	}
 
+	if (mpWater)
+	{
+		mpWater->Shutdown();
+		delete mpWater;
+		mpWater = nullptr;
+	}
+
+	mTreesInfo.clear();
+	mPlantsInfo.clear();
+
 	InitialiseBuffers(device);
+	mUpdating = false;
+
 	return true;
-}
-
-void CTerrain::UpdateMatrices(D3DXMATRIX & world)
-{
-	// Render any terrains.
-	D3DXMATRIX modelWorld;
-	// Define three matrices to hold x, y and z rotations.
-	D3DXMATRIX rotX;
-	D3DXMATRIX rotY;
-	D3DXMATRIX rotZ;
-
-	D3DXMatrixTranslation(&modelWorld, GetPosX(), GetPosY(), GetPosZ());
-
-	// Use Direct X to rotate the matrices and pass the matrix after rotation back into the rotation matrix we defined.
-	D3DXMatrixRotationX(&rotX, GetRotationX());
-	D3DXMatrixRotationY(&rotY, GetRotationY());
-	D3DXMatrixRotationZ(&rotZ, GetRotationZ());
-	world = modelWorld * rotX * rotY * rotZ;
-
 }
 
 bool CTerrain::PositionTreeHere()
@@ -777,9 +846,11 @@ bool CTerrain::PositionTreeHere()
 	return false;
 }
 
-bool CTerrain::CreateTree(D3DXVECTOR3 position)
+bool CTerrain::CreateTree(D3DXVECTOR3 position, D3DXVECTOR3 normal)
 {
-	if (PositionTreeHere())
+	position.x += 0.5f;
+	position.z += 0.5f;
+	if (PositionTreeHere() && normal.y >= 0.8f)
 	{
 		position.y += GetPosY();
 		position.x += GetPosX();
@@ -787,10 +858,14 @@ bool CTerrain::CreateTree(D3DXVECTOR3 position)
 		tree.position = position;
 
 		float rotation = static_cast<float>(rand() % 100 + 261);
-		tree.rotation = rotation;
-
-		float scale = static_cast<float>(rand() % 50 + 1) / static_cast<float>(rand() % 100 + 1);
+		tree.rotation.y = rotation;
+		float scale = static_cast<float>(rand() % 5 + 1);
+		if (scale < 0.5f)
+		{
+			scale = 0.5f;
+		}
 		tree.scale = scale;
+
 
 		mTreesInfo.push_back(tree);
 
@@ -813,9 +888,11 @@ bool CTerrain::PositionPlantHere()
 	return false;
 }
 
-bool CTerrain::CreatePlant(D3DXVECTOR3 position)
+bool CTerrain::CreatePlant(D3DXVECTOR3 position, D3DXVECTOR3 normal)
 {
-	if (PositionTreeHere())
+	position.x += 0.5f;
+	position.z += 0.5f;
+	if (PositionTreeHere() && normal.y > 0.7f)
 	{
 		position.y += GetPosY();
 		position.x += GetPosX();
@@ -823,9 +900,15 @@ bool CTerrain::CreatePlant(D3DXVECTOR3 position)
 		plant.position = position;
 
 		float rotation = static_cast<float>(rand() % 100 + 261);
-		plant.rotation = rotation;
+		plant.rotation.y = rotation;
 
-		float scale = static_cast<float>(rand() % 50 + 1) / static_cast<float>(rand() % 100 + 1);
+		float scale = static_cast<float>(rand() % 10 + 1);
+
+		if (scale < 5.0f)
+		{
+			scale = 5.0f;
+		}
+
 		plant.scale = scale;
 
 		mPlantsInfo.push_back(plant);

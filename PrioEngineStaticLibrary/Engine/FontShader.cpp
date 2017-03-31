@@ -5,7 +5,6 @@ CFontShader::CFontShader()
 	mpVertexShader = nullptr;
 	mpPixelShader = nullptr;
 	mpLayout = nullptr;
-	mpConstantBuffer = nullptr;
 	mpPixelBuffer = nullptr;
 	mpSampleState = nullptr;
 }
@@ -34,12 +33,12 @@ void CFontShader::Shutdown()
 	ShutdownShader();
 }
 
-bool CFontShader::Render(ID3D11DeviceContext * deviceContext, int indexCount, D3DXMATRIX worldMatrix, D3DXMATRIX viewMatrix, D3DXMATRIX projMatrix, ID3D11ShaderResourceView* texture, D3DXVECTOR4 pixelColour)
+bool CFontShader::Render(ID3D11DeviceContext * deviceContext, int indexCount, ID3D11ShaderResourceView* texture, D3DXVECTOR4 pixelColour)
 {
 	bool result;
 
 	// Set the parameters which will be used for rendering.
-	result = SetShaderParameters(deviceContext, worldMatrix, viewMatrix, projMatrix, texture, pixelColour);
+	result = SetShaderParameters(deviceContext, texture, pixelColour);
 	if (!result)
 	{
 		logger->GetInstance().WriteLine("Failed to set the shader parameters in FontShader.cpp");
@@ -159,20 +158,9 @@ bool CFontShader::InitialiseShader(ID3D11Device * device, HWND hwnd, std::string
 	pixelShaderBuffer->Release();
 	pixelShaderBuffer = nullptr;
 
-	// Setup the description of the dynamic matrix constant buffer that is in the vertex shader.
-	constantBufferDesc.Usage = D3D11_USAGE_DYNAMIC;
-	constantBufferDesc.ByteWidth = sizeof(ConstantBufferType);
-	constantBufferDesc.BindFlags = D3D11_BIND_CONSTANT_BUFFER;
-	constantBufferDesc.CPUAccessFlags = D3D11_CPU_ACCESS_WRITE;
-	constantBufferDesc.MiscFlags = 0;
-	constantBufferDesc.StructureByteStride = 0;
-
-	// Create the constant buffer pointer so we can access the vertex shader constant buffer from within this class.
-	result = device->CreateBuffer(&constantBufferDesc, NULL, &mpConstantBuffer);
-
-	if (FAILED(result))
+	if (!SetupMatrixBuffer(device))
 	{
-		logger->GetInstance().WriteLine("Failed to create the buffer pointer to access the vertex shader from within the Colour shader class.");
+		logger->GetInstance().WriteLine("Failed to create the matrix buffer in font shader class.");
 		return false;
 	}
 
@@ -235,12 +223,6 @@ void CFontShader::ShutdownShader()
 		mpSampleState = nullptr;
 	}
 
-	if (mpConstantBuffer)
-	{
-		mpConstantBuffer->Release();
-		mpConstantBuffer = nullptr;
-	}
-
 	if (mpLayout)
 	{
 		mpLayout->Release();
@@ -289,43 +271,19 @@ void CFontShader::OutputShaderErrorMessage(ID3D10Blob * errorMessage, HWND hwnd,
 	MessageBox(hwnd, "Error compiling shader. Check logs for a detailed error message.", shaderFilename.c_str(), MB_OK);
 }
 
-bool CFontShader::SetShaderParameters(ID3D11DeviceContext* deviceContext, D3DXMATRIX worldMatrix, D3DXMATRIX viewMatrix, D3DXMATRIX projMatrix, ID3D11ShaderResourceView* texture, D3DXVECTOR4 pixelColour)
+bool CFontShader::SetShaderParameters(ID3D11DeviceContext* deviceContext, ID3D11ShaderResourceView* texture, D3DXVECTOR4 pixelColour)
 {
 	HRESULT result;
 	D3D11_MAPPED_SUBRESOURCE mappedResource;
-	ConstantBufferType* dataPtr;
+	MatrixBufferType* dataPtr;
 	unsigned int bufferNumber;
 	PixelBufferType* dataPtr2;
 
-	// Lock the constant buffer so it can be written to.
-	result = deviceContext->Map(mpConstantBuffer, 0, D3D11_MAP_WRITE_DISCARD, 0, &mappedResource);
-	if (FAILED(result))
+	if (!SetMatrixBuffer(deviceContext, 0, ShaderType::Vertex))
 	{
-		logger->GetInstance().WriteLine("Failed to the lock the constant buffer so we could write to it in TextureShader.cpp.");
+		logger->GetInstance().WriteLine("Failed to set the matrix buffer in the font shader class.");
 		return false;
 	}
-
-	// Get a pointer to the data in the constant buffer.
-	dataPtr = (ConstantBufferType*)mappedResource.pData;
-
-	// Transpose the matrices so they are ready for the shader.
-	D3DXMatrixTranspose(&worldMatrix, &worldMatrix);
-	D3DXMatrixTranspose(&viewMatrix, &viewMatrix);
-	D3DXMatrixTranspose(&projMatrix, &projMatrix);
-
-	// Copy the matrices into the constant buffer.
-	dataPtr->world = worldMatrix;
-	dataPtr->view = viewMatrix;
-	dataPtr->projection = projMatrix;
-
-	// Unlock the constant buffer.
-	deviceContext->Unmap(mpConstantBuffer, 0);
-
-	// Set the position of the constant buffer in the vertex shader.
-	bufferNumber = 0;
-
-	// Set the constant buffer in the vertex shader with updated values.
-	deviceContext->VSSetConstantBuffers(bufferNumber, 1, &mpConstantBuffer);
 
 	// Set the shader texture resource in the pixel shader.
 	deviceContext->PSSetShaderResources(0, 1, &texture);

@@ -13,8 +13,7 @@
 #include <d3dx10math.h>
 #include <string>
 #include "PrioEngineVars.h"
-
-const int STRING_NUMBER_OF_BITS = 128;
+#include <AntTweakBar.h>
 
 class CD3D11
 {
@@ -42,7 +41,9 @@ private:
 	std::string mGraphicsCardName;
 	ID3D11BlendState* mpAlphaBlendingStateEnabled;
 	ID3D11BlendState* mpAlphaBlendingStateDisabled;
+	ID3D11BlendState* mpAdditiveAlphaBlendingStateEnabled;
 	ID3D11RasterizerState* mpRasterStateNoCulling;
+	ID3D11DepthStencilState* mpDepthState;
 public:
 	CD3D11();
 	~CD3D11();
@@ -64,6 +65,7 @@ public:
 
 	void EnableAlphaBlending();
 	void DisableAlphaBlending();
+	void EnableAdditiveAlphaBlending();
 
 	void DisableZBuffer();
 	void EnableZBuffer();
@@ -72,7 +74,9 @@ public:
 	void TurnOnBackFaceCulling();
 	void TurnOffBackFaceCulling();
 
-	//void GetGraphicsCardInfo(char* cardName, int& memory);
+	ID3D11DepthStencilView* GetDepthStencilView();
+	void SetBackBufferRenderTarget();
+	void SetDepthState(bool depth, bool stencil, bool depthWrite);
 /* Setup functions. */
 private:
 	void CreateSwapChainDesc(HWND hwnd, DXGI_SWAP_CHAIN_DESC& swapChainDesc, int refRateNumerator, int refRateDenominator);
@@ -84,6 +88,8 @@ private:
 	bool InitRasterizer(D3D11_RASTERIZER_DESC& rasterDesc);
 	void InitViewport(D3D11_VIEWPORT& viewport);
 	void CreateProjMatrix(float screenDepth, float screenNear);
+
+
 };
 
 #endif

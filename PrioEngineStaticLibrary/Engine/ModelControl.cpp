@@ -24,6 +24,12 @@ CModelControl::~CModelControl()
 {
 }
 
+float CModelControl::ToRadians(float degrees)
+{
+	const float kPi = 3.14159265359f;
+	return degrees * (kPi / 180.0f);
+}
+
 void CModelControl::RotateX(float x)
 {
 	mRotation.x += x;
@@ -196,6 +202,17 @@ D3DXVECTOR3 CModelControl::GetScale()
 	return mScale;
 }
 
+float CModelControl::GetScaleRadius(float initialRadius)
+{
+	float radius = 0.0f;
+
+	radius += mScale.x * initialRadius;
+	radius += mScale.y * initialRadius;
+	radius += mScale.z * initialRadius;
+
+	return radius;
+}
+
 void CModelControl::SetScaleX(float x)
 {
 	mScale.x = x;
@@ -233,4 +250,25 @@ void CModelControl::AttatchToParent(CModelControl * parent)
 void CModelControl::SeperateFromParent()
 {
 	mpParent = nullptr;
+}
+
+void CModelControl::UpdateMatrices()
+{
+		// Rotation
+		D3DXMATRIX matrixRotationX;
+		D3DXMATRIX matrixRotationY;
+		D3DXMATRIX matrixRotationZ;
+		// Position
+		D3DXMATRIX matrixTranslation;
+
+		// Calculate the rotation of the camera.
+		D3DXMatrixRotationX(&matrixRotationX, ToRadians(mRotation.x));
+		D3DXMatrixRotationY(&matrixRotationY, ToRadians(mRotation.y));
+		D3DXMatrixRotationZ(&matrixRotationZ, ToRadians(mRotation.z));
+
+		// Calculate the translation of the camera.
+		D3DXMatrixTranslation(&matrixTranslation, mPosition.x, mPosition.y, mPosition.z);
+
+		// Calculate the world matrix
+		mWorldMatrix = matrixRotationZ * matrixRotationX * matrixRotationY * matrixTranslation;
 }

@@ -1,40 +1,10 @@
 ﻿<?xml version="1.0" encoding="utf-8"?>
 <Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <ItemGroup>
-    <ClInclude Include="Engine\2DImage.h" />
-    <ClInclude Include="Engine\Camera.h" />
-    <ClInclude Include="Engine\ColourShader.h" />
-    <ClInclude Include="Engine\Cube.h" />
-    <ClInclude Include="Engine\D3D11.h" />
-    <ClInclude Include="Engine\DiffuseLightShader.h" />
-    <ClInclude Include="Engine\Engine.h" />
-    <ClInclude Include="Engine\FontShader.h" />
-    <ClInclude Include="Engine\Frustum.h" />
-    <ClInclude Include="Engine\GameFont.h" />
-    <ClInclude Include="Engine\GameText.h" />
-    <ClInclude Include="Engine\GameTimer.h" />
-    <ClInclude Include="Engine\Graphics.h" />
-    <ClInclude Include="Engine\Input.h" />
-    <ClInclude Include="Engine\Light.h" />
-    <ClInclude Include="Engine\Logger.h" />
-    <ClInclude Include="Engine\Mesh.h" />
-    <ClInclude Include="Engine\Model.h" />
-    <ClInclude Include="Engine\ModelControl.h" />
-    <ClInclude Include="Engine\Primitive.h" />
-    <ClInclude Include="Engine\PrioEngineVars.h" />
-    <ClInclude Include="Engine\SkyBox.h" />
-    <ClInclude Include="Engine\SkyboxShader.h" />
-    <ClInclude Include="Engine\SpecularLightingShader.h" />
-    <ClInclude Include="Engine\Terrain.h" />
-    <ClInclude Include="Engine\TerrainShader.h" />
-    <ClInclude Include="Engine\Texture.h" />
-    <ClInclude Include="Engine\TextureShader.h" />
-    <ClInclude Include="Engine\Triangle.h" />
-    <ClInclude Include="Engine\VertexTypeManager.h" />
-  </ItemGroup>
-  <ItemGroup>
     <ClCompile Include="Engine\2DImage.cpp" />
     <ClCompile Include="Engine\Camera.cpp" />
+    <ClCompile Include="Engine\CloudPlane.cpp" />
+    <ClCompile Include="Engine\CloudShader.cpp" />
     <ClCompile Include="Engine\ColourShader.cpp" />
     <ClCompile Include="Engine\Cube.cpp" />
     <ClCompile Include="Engine\D3D11.cpp" />
@@ -54,6 +24,11 @@
     <ClCompile Include="Engine\Model.cpp" />
     <ClCompile Include="Engine\ModelControl.cpp" />
     <ClCompile Include="Engine\Primitive.cpp" />
+    <ClCompile Include="Engine\Rain.cpp" />
+    <ClCompile Include="Engine\RainShader.cpp" />
+    <ClCompile Include="Engine\RefractReflectShader.cpp" />
+    <ClCompile Include="Engine\RenderTexture.cpp" />
+    <ClCompile Include="Engine\Shader.cpp" />
     <ClCompile Include="Engine\SkyBox.cpp" />
     <ClCompile Include="Engine\SkyboxShader.cpp" />
     <ClCompile Include="Engine\SpecularLightingShader.cpp" />
@@ -63,5 +38,48 @@
     <ClCompile Include="Engine\TextureShader.cpp" />
     <ClCompile Include="Engine\Triangle.cpp" />
     <ClCompile Include="Engine\VertexTypeManager.cpp" />
+    <ClCompile Include="Engine\Water.cpp" />
+    <ClCompile Include="Engine\WaterShader.cpp" />
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="Engine\2DImage.h" />
+    <ClInclude Include="Engine\Camera.h" />
+    <ClInclude Include="Engine\CloudPlane.h" />
+    <ClInclude Include="Engine\CloudShader.h" />
+    <ClInclude Include="Engine\ColourShader.h" />
+    <ClInclude Include="Engine\Cube.h" />
+    <ClInclude Include="Engine\D3D11.h" />
+    <ClInclude Include="Engine\DiffuseLightShader.h" />
+    <ClInclude Include="Engine\Engine.h" />
+    <ClInclude Include="Engine\FontShader.h" />
+    <ClInclude Include="Engine\Frustum.h" />
+    <ClInclude Include="Engine\GameFont.h" />
+    <ClInclude Include="Engine\GameText.h" />
+    <ClInclude Include="Engine\GameTimer.h" />
+    <ClInclude Include="Engine\Graphics.h" />
+    <ClInclude Include="Engine\Input.h" />
+    <ClInclude Include="Engine\Light.h" />
+    <ClInclude Include="Engine\Logger.h" />
+    <ClInclude Include="Engine\Mesh.h" />
+    <ClInclude Include="Engine\Model.h" />
+    <ClInclude Include="Engine\ModelControl.h" />
+    <ClInclude Include="Engine\Primitive.h" />
+    <ClInclude Include="Engine\PrioEngineVars.h" />
+    <ClInclude Include="Engine\Rain.h" />
+    <ClInclude Include="Engine\RainShader.h" />
+    <ClInclude Include="Engine\RefractReflectShader.h" />
+    <ClInclude Include="Engine\RenderTexture.h" />
+    <ClInclude Include="Engine\Shader.h" />
+    <ClInclude Include="Engine\SkyBox.h" />
+    <ClInclude Include="Engine\SkyboxShader.h" />
+    <ClInclude Include="Engine\SpecularLightingShader.h" />
+    <ClInclude Include="Engine\Terrain.h" />
+    <ClInclude Include="Engine\TerrainShader.h" />
+    <ClInclude Include="Engine\Texture.h" />
+    <ClInclude Include="Engine\TextureShader.h" />
+    <ClInclude Include="Engine\Triangle.h" />
+    <ClInclude Include="Engine\VertexTypeManager.h" />
+    <ClInclude Include="Engine\Water.h" />
+    <ClInclude Include="Engine\WaterShader.h" />
   </ItemGroup>
 </Project>

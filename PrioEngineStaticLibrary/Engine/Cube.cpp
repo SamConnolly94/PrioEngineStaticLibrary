@@ -52,7 +52,7 @@ CCube::CCube(PrioEngine::RGBA colour)
 	mpVertexBuffer = nullptr;
 	mpIndexBuffer = nullptr;
 	mpTexture = nullptr;
-	mpTextureFilename = nullptr;
+	mpTextureFilename = "";
 	mUseDiffuseLighting = false;
 	ResetColour();
 

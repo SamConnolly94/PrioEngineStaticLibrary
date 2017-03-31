@@ -6,7 +6,6 @@ CSpecularLightingShader::CSpecularLightingShader()
 	mpVertexShader = nullptr;
 	mpPixelShader = nullptr;
 	mpLayout = nullptr;
-	mpMatrixBuffer = nullptr;
 	mpSampleState = nullptr;
 	mpLightBuffer = nullptr;
 	mpCameraBuffer = nullptr;
@@ -37,14 +36,13 @@ void CSpecularLightingShader::Shutdown()
 	ShutdownShader();
 }
 
-bool CSpecularLightingShader::Render(	ID3D11DeviceContext* deviceContext, int indexCount, D3DXMATRIX worldMatrix, D3DXMATRIX viewMatrix,
-										D3DXMATRIX projMatrix, ID3D11ShaderResourceView* texture, D3DXVECTOR3 lightDirection, D3DXVECTOR4 diffuseColour, D3DXVECTOR4 ambientColour, 
+bool CSpecularLightingShader::Render(	ID3D11DeviceContext* deviceContext, int indexCount, ID3D11ShaderResourceView* texture, D3DXVECTOR3 lightDirection, D3DXVECTOR4 diffuseColour, D3DXVECTOR4 ambientColour,
 										D3DXVECTOR3 cameraPosition, D3DXVECTOR4 specularColor, float specularPower)
 {
 	bool result;
 
 	// Set the shader parameters that it will use for rendering.
-	result = SetShaderParameters(deviceContext, worldMatrix, viewMatrix, projMatrix, texture, lightDirection, diffuseColour, ambientColour, cameraPosition, specularColor, specularPower);
+	result = SetShaderParameters(deviceContext, texture, lightDirection, diffuseColour, ambientColour, cameraPosition, specularColor, specularPower);
 	if (!result)
 	{
 		return false;
@@ -64,7 +62,6 @@ bool CSpecularLightingShader::InitialiseShader(ID3D11Device * device, HWND hwnd,
 	ID3D10Blob* pixelShaderBuffer;
 	D3D11_INPUT_ELEMENT_DESC polygonLayout[3];
 	unsigned int numElements;
-	D3D11_BUFFER_DESC matrixBufferDesc;
 	D3D11_SAMPLER_DESC samplerDesc;
 	D3D11_BUFFER_DESC cameraBufferDesc;
 	D3D11_BUFFER_DESC lightBufferDesc;
@@ -196,22 +193,13 @@ bool CSpecularLightingShader::InitialiseShader(ID3D11Device * device, HWND hwnd,
 		return false;
 	}
 
-	// Setup the description of the dynamic matrix constant buffer that is in the vertex shader.
-	matrixBufferDesc.Usage = D3D11_USAGE_DYNAMIC;
-	matrixBufferDesc.ByteWidth = sizeof(MatrixBufferType);
-	matrixBufferDesc.BindFlags = D3D11_BIND_CONSTANT_BUFFER;
-	matrixBufferDesc.CPUAccessFlags = D3D11_CPU_ACCESS_WRITE;
-	matrixBufferDesc.MiscFlags = 0;
-	matrixBufferDesc.StructureByteStride = 0;
 
-
-	// Create the constant buffer pointer so we can access the vertex shader constant buffer from within this class.
-	result = device->CreateBuffer(&matrixBufferDesc, NULL, &mpMatrixBuffer);
-	if (FAILED(result))
+	if (!SetupMatrixBuffer(device))
 	{
-		logger->GetInstance().WriteLine("Failed to create the buffer pointer to access the vertex shader from within the texture shader class.");
+		logger->GetInstance().WriteLine("Failed to set up matrix buffer in skybox shader class.");
 		return false;
 	}
+
 
 	// Set up the camera buffer.
 	cameraBufferDesc.Usage = D3D11_USAGE_DYNAMIC;
@@ -265,12 +253,6 @@ void CSpecularLightingShader::ShutdownShader()
 		mpSampleState = nullptr;
 	}
 
-	if (mpMatrixBuffer)
-	{
-		mpMatrixBuffer->Release();
-		mpMatrixBuffer = nullptr;
-	}
-
 	if (mpLayout)
 	{
 		mpLayout->Release();
@@ -322,7 +304,7 @@ void CSpecularLightingShader::OutputShaderErrorMessage(ID3D10Blob *errorMessage,
 	MessageBox(hwnd, "Error compiling the shader. Check the logs for a more detailed error message.", shaderFilename.c_str(), MB_OK);
 }
 
-bool CSpecularLightingShader::SetShaderParameters(	ID3D11DeviceContext * deviceContext, D3DXMATRIX worldMatrix, D3DXMATRIX viewMatrix, D3DXMATRIX projMatrix, ID3D11ShaderResourceView * texture,
+bool CSpecularLightingShader::SetShaderParameters(	ID3D11DeviceContext * deviceContext, ID3D11ShaderResourceView * texture,
 													D3DXVECTOR3 lightDirection, D3DXVECTOR4 diffuseColour, D3DXVECTOR4 ambientColour, D3DXVECTOR3 cameraPosition, D3DXVECTOR4 specularColor, float specularPower)
 {
 	HRESULT result;
@@ -332,35 +314,13 @@ bool CSpecularLightingShader::SetShaderParameters(	ID3D11DeviceContext * deviceC
 	LightBufferType* dataPtr2;
 	CameraBufferType* dataPtr3;
 
-
-	// Transpose the matrices to prepare them for the shader.
-	D3DXMatrixTranspose(&worldMatrix, &worldMatrix);
-	D3DXMatrixTranspose(&viewMatrix, &viewMatrix);
-	D3DXMatrixTranspose(&projMatrix, &projMatrix);
-
-	// Lock the constant buffer so it can be written to.
-	result = deviceContext->Map(mpMatrixBuffer, 0, D3D11_MAP_WRITE_DISCARD, 0, &mappedResource);
-	if (FAILED(result))
-	{
-		return false;
-	}
-
-	// Get a pointer to the data in the constant buffer.
-	dataPtr = (MatrixBufferType*)mappedResource.pData;
-
-	// Copy the matrices into the constant buffer.
-	dataPtr->world = worldMatrix;
-	dataPtr->view = viewMatrix;
-	dataPtr->projection = projMatrix;
-
-	// Unlock the constant buffer.
-	deviceContext->Unmap(mpMatrixBuffer, 0);
-
-	// Set the position of the constant buffer in the vertex shader.
 	bufferNumber = 0;
 
-	// Now set the constant buffer in the vertex shader with the updated values.
-	deviceContext->VSSetConstantBuffers(bufferNumber, 1, &mpMatrixBuffer);
+	if (!SetMatrixBuffer(deviceContext, bufferNumber, ShaderType::Vertex))
+	{
+		logger->GetInstance().WriteLine("Failed to set the matrix buffer in skybox refract shader.");
+		return false;
+	}
 
 	// Lock camera constant buffer so it can be written to.
 	result = deviceContext->Map(mpCameraBuffer, 0, D3D11_MAP_WRITE_DISCARD, 0, &mappedResource);
@@ -387,6 +347,8 @@ bool CSpecularLightingShader::SetShaderParameters(	ID3D11DeviceContext * deviceC
 	deviceContext->VSSetConstantBuffers(bufferNumber, 1, &mpCameraBuffer);
 
 	// Set shader texture resource in the pixel shader.
+	ID3D11ShaderResourceView* nullShader = nullptr;
+	deviceContext->PSSetShaderResources(0, 1, &nullShader);
 	deviceContext->PSSetShaderResources(0, 1, &texture);
 
 	// Lock the light constant buffer so it can be written to.

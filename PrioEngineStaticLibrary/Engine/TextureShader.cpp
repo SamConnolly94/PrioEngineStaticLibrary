@@ -5,7 +5,6 @@ CTextureShader::CTextureShader()
 	mpVertexShader = nullptr;
 	mpPixelShader = nullptr;
 	mpLayout = nullptr;
-	mpMatrixBuffer = nullptr;
 	mpSampleState = nullptr;
 }
 
@@ -35,12 +34,12 @@ void CTextureShader::Shutdown()
 	ShutdownShader();
 }
 
-bool CTextureShader::Render(ID3D11DeviceContext * deviceContext, int indexCount, D3DXMATRIX worldMatrix, D3DXMATRIX viewMatrix, D3DXMATRIX projMatrix, ID3D11ShaderResourceView * texture)
+bool CTextureShader::Render(ID3D11DeviceContext * deviceContext, int indexCount, ID3D11ShaderResourceView * texture)
 {
 	bool result;
 
 	// Set the shader parameters that will be used for rendering.
-	result = SetShaderParameters(deviceContext, worldMatrix, viewMatrix, projMatrix, texture);
+	result = SetShaderParameters(deviceContext, texture);
 	if (!result)
 	{
 		logger->GetInstance().WriteLine("Failed to set the shader parameters in texture shader.");
@@ -154,20 +153,9 @@ bool CTextureShader::InitialiseShader(ID3D11Device * device, HWND hwnd, std::str
 	pixelShaderBuffer->Release();
 	pixelShaderBuffer = nullptr;
 
-	// Setup the description of the dynamic matrix constant buffer that is in the vertex shader.
-	matrixBufferDesc.Usage = D3D11_USAGE_DYNAMIC;
-	matrixBufferDesc.ByteWidth = sizeof(MatrixBufferType);
-	matrixBufferDesc.BindFlags = D3D11_BIND_CONSTANT_BUFFER;
-	matrixBufferDesc.CPUAccessFlags = D3D11_CPU_ACCESS_WRITE;
-	matrixBufferDesc.MiscFlags = 0;
-	matrixBufferDesc.StructureByteStride = 0;
-
-
-	// Create the constant buffer pointer so we can access the vertex shader constant buffer from within this class.
-	result = device->CreateBuffer(&matrixBufferDesc, NULL, &mpMatrixBuffer);
-	if (FAILED(result))
+	if (!SetupMatrixBuffer(device))
 	{
-		logger->GetInstance().WriteLine("Failed to create the buffer pointer to access the vertex shader from within the texture shader class.");
+		logger->GetInstance().WriteLine("Failed to set up matrix buffer in texture shader class.");
 		return false;
 	}
 
@@ -204,12 +192,6 @@ void CTextureShader::ShutdownShader()
 	{
 		mpSampleState->Release();
 		mpSampleState = nullptr;
-	}
-
-	if (mpMatrixBuffer)
-	{
-		mpMatrixBuffer->Release();
-		mpMatrixBuffer = nullptr;
 	}
 
 	if (mpLayout)
@@ -263,42 +245,21 @@ void CTextureShader::OutputShaderErrorMessage(ID3D10Blob * errorMessage, HWND hw
 	MessageBox(hwnd, "Error compiling the shader. Check the logs for a more detailed error message.", shaderFilename.c_str(), MB_OK);
 }
 
-bool CTextureShader::SetShaderParameters(ID3D11DeviceContext * deviceContext, D3DXMATRIX worldMatrix, D3DXMATRIX viewMatrix, D3DXMATRIX projMatrix, ID3D11ShaderResourceView * texture)
+bool CTextureShader::SetShaderParameters(ID3D11DeviceContext * deviceContext, ID3D11ShaderResourceView * texture)
 {
 	HRESULT result;
 	D3D11_MAPPED_SUBRESOURCE mappedResource;
 	MatrixBufferType* dataPtr;
 	unsigned int bufferNumber;
 
-	// Transpose the matrices so they are ready for the shader.
-	D3DXMatrixTranspose(&worldMatrix, &worldMatrix);
-	D3DXMatrixTranspose(&viewMatrix, &viewMatrix);
-	D3DXMatrixTranspose(&projMatrix, &projMatrix);
 
-	// Lock the constant buffer so it can be written to.
-	result = deviceContext->Map(mpMatrixBuffer, 0, D3D11_MAP_WRITE_DISCARD, 0, &mappedResource);
-	if (FAILED(result))
-	{
-		logger->GetInstance().WriteLine("Failed to the lock the constant buffer so we could write to it in TextureShader.cpp.");
-		return false;
-	}
-
-	// Get a pointer to the data in the constant buffer.
-	dataPtr = (MatrixBufferType*)mappedResource.pData;
-
-	// Copy the matrices into the constant buffer.
-	dataPtr->world = worldMatrix;
-	dataPtr->view = viewMatrix;
-	dataPtr->projection = projMatrix;
-
-	// Unlock the constant buffer.
-	deviceContext->Unmap(mpMatrixBuffer, 0);
-
-	// Set the position of the constant buffer in the vertex shader.
 	bufferNumber = 0;
 
-	// Set the constant buffer in the vertex shader with updated values.
-	deviceContext->VSSetConstantBuffers(bufferNumber, 1, &mpMatrixBuffer);
+	if (!SetMatrixBuffer(deviceContext, bufferNumber, ShaderType::Vertex))
+	{
+		logger->GetInstance().WriteLine("Failed to set the matrix buffer in terrain shader.");
+		return false;
+	}
 
 	// Set the shader texture resource in the pixel shader.
 	deviceContext->PSSetShaderResources(0, 1, &texture);
